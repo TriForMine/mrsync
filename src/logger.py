@@ -1,4 +1,4 @@
-#   Copyright (c) 2023, TriForMine. (https://triformine.dev) All rights reserved.
+#   Copyright (c) 2023, TriForMine. (https://triformine.dev) and samsoucoupe All rights reserved.
 #  #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -20,42 +20,41 @@ from typing import Optional
 class Logger:
     verbose: Optional[bool]
     quiet: Optional[bool]
-    debug: Optional[bool]
 
-    def __init__(self, verbose: Optional[bool] = False, quiet: Optional[bool] = False, debug: Optional[bool] = False,
-                 beautify: Optional[bool] = False):
+    def __init__(self, verbose: Optional[bool] = False, quiet: Optional[bool] = False,
+                 beautify: Optional[bool] = True, debug_mode: Optional[bool] = False):
         self.verbose = verbose
         self.quiet = quiet
         self.beautify = beautify
-        self.debug = debug
+        self.debug_mode = debug_mode
 
     @staticmethod
     def time_header():
         return datetime.datetime.now().strftime("%H:%M:%S")
 
-    def custom_print(self, message, color):
+    def custom_print(self, message, color, fo=sys.stdout):
         if self.beautify:
             if sys.platform == "win32":
-                sys.stdout.write(f"{message}\033[0m")
+                fo.write(f"{message}\033[0m\n")
             else:
-                sys.stdout.write(f"\033[{color}m{message}\033[0m")
+                fo.write(f"\033[{color}m{message}\033[0m\n")
         else:
-            sys.stdout.write(f"{message}")
+            fo.write(f"{message}\n")
 
     def log(self, message):
         if not self.quiet:
             self.custom_print(f"[{self.time_header()}] {message}", 32)
 
     def error(self, message):
-        self.custom_print(f"[{self.time_header()}] {message}", 31)
+        self.custom_print(f"[{self.time_header()}] {message}", 31, sys.stderr)
 
     def warn(self, message):
         self.custom_print(f"[{self.time_header()}] {message}", 33)
-    
+
     def info(self, message):
         if self.verbose:
             self.custom_print(f"[{self.time_header()}] {message}", 36)
 
     def debug(self, message):
-        if self.debug:
+        if self.verbose:
             self.custom_print(f"[{self.time_header()}] {message}", 35)

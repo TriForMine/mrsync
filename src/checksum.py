@@ -1,4 +1,4 @@
-#   Copyright (c) 2023, TriForMine. (https://triformine.dev) All rights reserved.
+#   Copyright (c) 2023, TriForMine. (https://triformine.dev) and samsoucoupe All rights reserved.
 #  #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -40,8 +40,9 @@ class Checksum:
             self.totalLength = total_length
             return
 
+        self.parts = divide
+
         with open(path, "rb") as f:
-            self.parts = divide
             f.seek(0, 2)
             size = f.tell()
             self.totalLength = size
@@ -77,6 +78,8 @@ class Checksum:
         # Add the last part if it is not the same length as the other parts
         if self.totalLength < other.totalLength:
             parts.append((self.totalLength, other.totalLength))
+        elif self.totalLength > other.totalLength:
+            parts.append((other.totalLength, self.totalLength))
 
         # Group parts that are next to each other
         return_parts = []

@@ -12,32 +12,15 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-import os
 
-import options
-from client import Client
+from typing import List
+
+import filelist
 from logger import Logger
-from server import Server
 
-if __name__ == '__main__':
-    logger = Logger()
-    args = options.get_args(logger)
-    logger.verbose = args.verbose
-    logger.quiet = args.quiet
 
-    rd_server, wr_client = os.pipe()
-    rd_client, wr_server = os.pipe()
+def show_files(sources: List[str], logger: Logger):
+    files = filelist.generate_file_list(sources=sources, logger=logger)
 
-    pid = os.fork()
-
-    if pid > 0:
-        os.close(rd_server)
-        os.close(wr_server)
-
-        client = Client(args.source[0], rd_client, wr_client, pid, logger, args)
-        client.run()
-    else:
-        os.close(wr_client)
-        os.close(rd_client)
-        server = Server(args.source[0], args.destination, rd_server, wr_server, logger, args)
-        server.run()
+    for file in files:
+        print(file)
