@@ -16,6 +16,7 @@ import os
 
 import options
 from client import Client
+from filelist import print_file_list
 from logger import Logger
 from server import Server
 
@@ -24,6 +25,11 @@ if __name__ == '__main__':
     args = options.get_args(logger)
     logger.verbose = args.verbose
     logger.quiet = args.quiet
+
+    if args.list_only:
+        logger.debug_mode = True
+        print_file_list(args.source[0], logger, recursive=args.recursive, directory=args.dirs)
+        exit(0)
 
     rd_server, wr_client = os.pipe()
     rd_client, wr_server = os.pipe()

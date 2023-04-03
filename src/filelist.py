@@ -38,3 +38,13 @@ def generate_file_list(sources: List[str], logger, recursive: Optional[bool] = F
 
     logger.debug("File list generated.")
     return file_list
+
+
+def print_file_list(sources: List[str], logger, recursive: Optional[bool] = False,
+                    directory: Optional[bool] = False):
+    file_list = generate_file_list(sources, logger, recursive, directory)
+
+    for file in file_list:
+        logger.log(file)
+
+    logger.log(f"Total files: {len(file_list)}")

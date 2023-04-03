@@ -93,9 +93,6 @@ def get_args(logger: Logger):
         args.blocking_io = True
 
     if args.list_only:
-        args.update = True
-        args.ignore_existing = True
-        args.delete = True
-        args.force = True
+        args.dirs = True
 
     return args

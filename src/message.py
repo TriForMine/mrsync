@@ -99,6 +99,9 @@ def recv(fd: int) -> (int, object):
 
     print(f'Receiving {amount_of_packets} packets with tag {tag} ({tag.name})')
 
+    if amount_of_packets == 0:
+        return tag, None
+
     if tag == MESSAGE_TAG.FILE_DATA:
         # Receive size of filename
         size = os.read(fd, 4)
@@ -110,9 +113,6 @@ def recv(fd: int) -> (int, object):
 
     current_packet = 0
     total_data = b''
-
-    if amount_of_packets == 0:
-        return tag, None
 
     while current_packet < amount_of_packets:
         # Receive current packet number
