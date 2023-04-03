@@ -36,14 +36,16 @@ class Client:
 
             if tag == MESSAGE_TAG.ASK_FILE_LIST:
                 self.logger.info('File list requested')
-                file_list = generate_file_list(self.sources, self.logger, recursive=self.args.recursive)
+                file_list = generate_file_list(self.sources, self.logger, recursive=self.args.recursive,
+                                               directory=self.args.dirs)
                 send(self.wr, MESSAGE_TAG.FILE_LIST, file_list)
             elif tag == MESSAGE_TAG.ASK_FILE_DATA:
                 self.logger.info(f'File data requested for {v}')
-                if path.isdir(path.join(self.sources[0], v)):
+                target_path = path.join(self.sources[0], v) if v != '' else self.sources[0]
+                if path.isdir(target_path):
                     send(self.wr, MESSAGE_TAG.FILE_DATA, (v + '/', b''))
                 else:
-                    with open(path.join(self.sources[0], v), 'rb') as f:
+                    with open(target_path, 'rb') as f:
                         data = f.read()
                         send(self.wr, MESSAGE_TAG.FILE_DATA, (v, data))
             elif tag == MESSAGE_TAG.END:
@@ -55,3 +57,8 @@ class Client:
                 self.logger.debug('[Stopping] Generator finished')
                 running = False
                 break
+            elif tag == MESSAGE_TAG.DELETE_FILES:
+                self.logger.info(f'Deleting files {v}')
+                send(self.wr, MESSAGE_TAG.DELETE_FILES, v)
+            else:
+                raise Exception(f'Unknown message tag {tag}')

@@ -74,9 +74,6 @@ def get_args(logger: Logger):
     if args.recursive:
         args.dirs = True
 
-    if args.dirs:
-        args.recursive = True
-
     if args.update:
         args.ignore_existing = True
 

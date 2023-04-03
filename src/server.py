@@ -42,12 +42,29 @@ class Server:
             self.logger.info(f"Creating directory {file}...")
             os.makedirs(path.join(self.destination, file), exist_ok=True)
         else:
+            if not path.exists(path.dirname(path.join(self.destination, file))):
+                os.makedirs(path.dirname(path.join(self.destination, file)), exist_ok=True)
+
             self.logger.info(f"Creating file {file}...")
-            with open(path.join(self.destination, file), "wb") as f:
+            target_path = path.join(self.destination, file) if file != '' else path.join(self.destination,
+                                                                                         path.basename(self.source[0]))
+            with open(target_path, "wb") as f:
                 f.write(data)
 
+    def handle_file_deletion(self, files: list):
+        if files is None:
+            return
+
+        for file in files:
+            self.logger.info(f"Deleting {file}...")
+            if path.isdir(path.join(self.destination, file)):
+                os.rmdir(path.join(self.destination, file))
+            else:
+                os.remove(path.join(self.destination, file))
+
     def loop(self):
-        destination_files = generate_file_list([self.destination], self.logger, recursive=self.args.recursive)
+        destination_files = generate_file_list([self.destination], self.logger, recursive=self.args.recursive,
+                                               directory=True)
 
         send(self.wr, MESSAGE_TAG.ASK_FILE_LIST, None)
         while True:
@@ -63,12 +80,14 @@ class Server:
                 if pid == 0:
                     os.close(self.rd)
                     generator = Generator(self.wr, self.source, self.destination, source_files, destination_files,
-                                          self.logger)
+                                          self.logger, self.args)
                     generator.run()
                     sys.exit(0)
             elif tag == MESSAGE_TAG.FILE_DATA:
                 (file_name, data) = v
                 self.handle_file_creation(file_name, data)
+            elif tag == MESSAGE_TAG.DELETE_FILES:
+                self.handle_file_deletion(v)
             elif tag == MESSAGE_TAG.END:
                 self.logger.info('Server: End of transmission')
                 break

@@ -15,22 +15,26 @@ import os
 from typing import List, Optional
 
 
-def generate_file_list(sources: List[str], logger, recursive: Optional[bool] = False) -> List[str]:
+def generate_file_list(sources: List[str], logger, recursive: Optional[bool] = False,
+                       directory: Optional[bool] = False) -> List[str]:
     # Returns the list of files with their absolute paths relative to the source directory.
 
     logger.debug("Generating file list...")
     file_list = []
     for source in sources:
-        for root, dirs, files in os.walk(source, followlinks=True):
-            for file in files:
-                file_path = os.path.join(root, file)
-                file_list.append(os.path.relpath(file_path, source))
-            for dir in dirs:
-                dir_path = os.path.join(root, dir)
-                file_list.append(os.path.relpath(dir_path, source))
+        if directory:
+            for root, dirs, files in os.walk(source, followlinks=True):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    file_list.append(os.path.relpath(file_path, source))
+                for dir in dirs:
+                    dir_path = os.path.join(root, dir)
+                    file_list.append(os.path.relpath(dir_path, source))
 
-            if not recursive:
-                break
+                if not recursive:
+                    break
+        else:
+            file_list.append('')
 
     logger.debug("File list generated.")
     return file_list
