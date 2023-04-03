@@ -22,21 +22,21 @@ MAX_SIZE = 1024 * 63
 # Message tags
 class MESSAGE_TAG(Enum):
     # Ask for file list
-    ASK_FILE_LIST = 0
+    ASK_FILE_LIST = 1
     # File list
-    FILE_LIST = 1
+    FILE_LIST = 2
     # Ask for file data
-    ASK_FILE_DATA = 2
+    ASK_FILE_DATA = 3
     # File data
-    FILE_DATA = 3
+    FILE_DATA = 4
     # File data end
-    FILE_DATA_END = 4
+    FILE_DATA_END = 5
     # End of transmission
-    END = 5
+    END = 6
     # Generator finished
-    GENERATOR_FINISHED = 6
+    GENERATOR_FINISHED = 7
     # Delete files
-    DELETE_FILES = 7
+    DELETE_FILES = 8
 
 
 def send(fd: int, tag: MESSAGE_TAG, v: object) -> None:
@@ -54,8 +54,6 @@ def send(fd: int, tag: MESSAGE_TAG, v: object) -> None:
     # Send message tag
     size = tag.value.to_bytes(4, byteorder='big')
     os.write(fd, size)
-
-    print(f'Sending {amount_of_packets} packets with tag {tag} ({tag.name})')
 
     if tag == MESSAGE_TAG.FILE_DATA:
         filename_data = filename.encode('utf-8')
@@ -95,9 +93,12 @@ def recv(fd: int) -> (int, object):
 
     # Receive message tag
     size = os.read(fd, 4)
-    tag = MESSAGE_TAG(int.from_bytes(size, byteorder='big'))
+    tag = int.from_bytes(size, byteorder='big')
 
-    print(f'Receiving {amount_of_packets} packets with tag {tag} ({tag.name})')
+    if tag == 0:
+        raise Exception(f'Invalid tag received: {tag}')
+
+    tag = MESSAGE_TAG(tag)
 
     if amount_of_packets == 0:
         return tag, None
