@@ -98,7 +98,7 @@ class Generator:
     def ask_file(self, file, parts: List[Tuple[int, int]] = None):
         for part in parts:
             self.logger.debug(f"Asking for file {file} with part {part}...")
-            send(self.write_server, MESSAGE_TAG.ASK_FILE_DATA, (file, part))
+            send(self.write_server, MESSAGE_TAG.ASK_FILE_DATA, (file, part), timeout=self.args.timeout)
 
     def ask_files(self, files: List[str], files_parts: List[List[Tuple[int, int]]]):
         for i in range(len(files)):
@@ -124,7 +124,7 @@ class Generator:
             self.logger.debug("Extra files:")
             if self.args.delete:
                 self.logger.debug(f"Deleting extra files {extra_files}...")
-                send(self.write_server, MESSAGE_TAG.DELETE_FILES, extra_files)
+                send(self.write_server, MESSAGE_TAG.DELETE_FILES, extra_files, timeout=self.args.timeout)
             else:
                 self.logger.debug(f"Ignoring extra files {extra_files}...")
 
@@ -138,5 +138,5 @@ class Generator:
             self.logger.debug("No modified files.")
 
         self.logger.info("Generator finished")
-        send(self.write_server, MESSAGE_TAG.GENERATOR_FINISHED, None)
+        send(self.write_server, MESSAGE_TAG.GENERATOR_FINISHED, None, timeout=self.args.timeout)
         os.close(self.write_server)

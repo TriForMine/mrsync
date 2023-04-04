@@ -12,6 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 import os
+import shutil
 import sys
 from argparse import Namespace
 from os import path
@@ -38,6 +39,16 @@ class Server:
         sys.exit(0)
 
     def handle_file_creation(self, file: str, data: bytes):
+        """
+        Handle file creation
+        :param file: The file name
+        :param data:  The file data
+        :return: None
+        """
+
+        if self.args.existing:
+            return
+
         if file.endswith("/"):
             self.logger.info(f"Creating directory {file}...")
             os.makedirs(path.join(self.destination, file), exist_ok=True)
@@ -52,6 +63,9 @@ class Server:
                 f.write(data)
 
     def handle_file_modification(self, file_name: str, start_byte: int, end_byte: int, data: bytes):
+        if self.args.ignore_existing:
+            return
+
         if not path.exists(path.dirname(path.join(self.destination, file_name))):
             os.makedirs(path.dirname(path.join(self.destination, file_name)), exist_ok=True)
 
@@ -75,7 +89,12 @@ class Server:
         for file in files:
             self.logger.info(f"Deleting {file}...")
             if path.isdir(path.join(self.destination, file)):
-                os.rmdir(path.join(self.destination, file))
+                try:
+                    os.rmdir(path.join(self.destination, file))
+                except OSError:
+                    # If the directory is not empty, we delete all files in it
+                    if self.args.force:
+                        shutil.rmtree(path.join(self.destination, file))
             else:
                 os.remove(path.join(self.destination, file))
 
@@ -83,9 +102,9 @@ class Server:
         destination_files = generate_file_list([self.destination], self.logger, recursive=self.args.recursive,
                                                directory=True)
 
-        send(self.wr, MESSAGE_TAG.ASK_FILE_LIST, None)
+        send(self.wr, MESSAGE_TAG.ASK_FILE_LIST, None, timeout=self.args.timeout)
         while True:
-            tag, v = recv(self.rd)
+            tag, v = recv(self.rd, timeout=self.args.timeout)
 
             if tag == MESSAGE_TAG.FILE_LIST:
                 self.logger.info(f'File list received {v}')

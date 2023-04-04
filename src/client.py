@@ -32,30 +32,31 @@ class Client:
 
     def run(self):
         while True:
-            (tag, v) = recv(self.rd)
+            (tag, v) = recv(self.rd, timeout=self.args.timeout)
 
             if tag == MESSAGE_TAG.ASK_FILE_LIST:
                 self.logger.info('File list requested')
                 file_list = generate_file_list(self.sources, self.logger, recursive=self.args.recursive,
                                                directory=self.args.dirs)
-                send(self.wr, MESSAGE_TAG.FILE_LIST, file_list)
+                send(self.wr, MESSAGE_TAG.FILE_LIST, file_list, timeout=self.args.timeout)
             elif tag == MESSAGE_TAG.ASK_FILE_DATA:
                 (filename, part) = v
 
                 self.logger.info(f'File data requested for {filename}')
                 target_path = path.join(self.sources[0], filename) if filename != '' else self.sources[0]
                 if path.isdir(target_path):
-                    send(self.wr, MESSAGE_TAG.FILE_DATA, (filename + '/', 0, 0, b''))
+                    send(self.wr, MESSAGE_TAG.FILE_DATA, (filename + '/', 0, 0, b''), timeout=self.args.timeout)
                 else:
                     with open(target_path, "rb") as f:
                         if part[0] == -1 or part[1] == -1:
-                            send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, 0, 0, f.read()))
+                            send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, 0, 0, f.read()), timeout=self.args.timeout)
                         else:
                             f.seek(part[0])
                             data = f.read(part[1] - part[0] + 1)
-                            send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, part[0], part[1], data))
+                            send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, part[0], part[1], data),
+                                 timeout=self.args.timeout)
             elif tag == MESSAGE_TAG.END:
-                send(self.wr, MESSAGE_TAG.END, None)
+                send(self.wr, MESSAGE_TAG.END, None, timeout=self.args.timeout)
                 self.logger.debug('End of transmission')
                 break
             elif tag == MESSAGE_TAG.GENERATOR_FINISHED:
@@ -63,7 +64,7 @@ class Client:
                 break
             elif tag == MESSAGE_TAG.DELETE_FILES:
                 self.logger.info(f'Deleting files {v}')
-                send(self.wr, MESSAGE_TAG.DELETE_FILES, v)
+                send(self.wr, MESSAGE_TAG.DELETE_FILES, v, timeout=self.args.timeout)
             else:
                 raise Exception(f'Unknown message tag {tag}')
 

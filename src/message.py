@@ -12,7 +12,9 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 import os
+import signal
 from enum import Enum
+from typing import Optional
 
 import cbor2
 
@@ -39,135 +41,159 @@ class MESSAGE_TAG(Enum):
     DELETE_FILES = 8
 
 
-def send(fd: int, tag: MESSAGE_TAG, v: object) -> None:
-    if tag == MESSAGE_TAG.FILE_DATA:
-        (filename, start, end, data) = v
-    else:
-        data = cbor2.dumps(v)
+def _timeout_handler(signum, frame):
+    raise TimeoutError("Timeout reached.")
 
-    amount_of_packets = len(data) // MAX_SIZE + 1
 
-    # Send total amount of packets
-    size = amount_of_packets.to_bytes(4, byteorder='big')
-    os.write(fd, size)
+def send(fd: int, tag: MESSAGE_TAG, v: object, timeout: Optional[int] = None) -> None:
+    # Use signal.alarm for timeout
+    if timeout is not None:
+        signal.signal(signal.SIGALRM, _timeout_handler)
+        signal.alarm(timeout)
 
-    # Send message tag
-    size = tag.value.to_bytes(4, byteorder='big')
-    os.write(fd, size)
+    try:
+        if tag == MESSAGE_TAG.FILE_DATA:
+            (filename, start, end, data) = v
+        else:
+            data = cbor2.dumps(v)
 
-    if tag == MESSAGE_TAG.FILE_DATA:
-        filename_data = filename.encode('utf-8')
+        amount_of_packets = len(data) // MAX_SIZE + 1
 
-        # Send size of filename
-        size = len(filename_data).to_bytes(4, byteorder='big')
+        # Send total amount of packets
+        size = amount_of_packets.to_bytes(4, byteorder='big')
         os.write(fd, size)
 
-        # Send filename
-        os.write(fd, filename_data)
-
-        # Send start byte
-        size = start.to_bytes(4, byteorder='big')
+        # Send message tag
+        size = tag.value.to_bytes(4, byteorder='big')
         os.write(fd, size)
 
-        # Send end byte
-        size = end.to_bytes(4, byteorder='big')
-        os.write(fd, size)
+        if tag == MESSAGE_TAG.FILE_DATA:
+            filename_data = filename.encode('utf-8')
 
-    for i in range(amount_of_packets):
-        slice = data[i * MAX_SIZE:(i + 1) * MAX_SIZE]
+            # Send size of filename
+            size = len(filename_data).to_bytes(4, byteorder='big')
+            os.write(fd, size)
 
-        # Send current packet number
-        size = i.to_bytes(4, byteorder='big')
-        os.write(fd, size)
+            # Send filename
+            os.write(fd, filename_data)
 
-        # Send message size first
-        size = len(slice).to_bytes(4, byteorder='big')
-        os.write(fd, size)
+            # Send start byte
+            size = start.to_bytes(4, byteorder='big')
+            os.write(fd, size)
 
-        # Send message data
-        response = os.write(fd, slice)
-        if response != len(slice):
-            raise Exception(f'Error while sending message {tag} to {fd}')
+            # Send end byte
+            size = end.to_bytes(4, byteorder='big')
+            os.write(fd, size)
+
+        for i in range(amount_of_packets):
+            slice = data[i * MAX_SIZE:(i + 1) * MAX_SIZE]
+
+            # Send current packet number
+            size = i.to_bytes(4, byteorder='big')
+            os.write(fd, size)
+
+            # Send message size first
+            size = len(slice).to_bytes(4, byteorder='big')
+            os.write(fd, size)
+
+            # Send message data
+            response = os.write(fd, slice)
+            if response != len(slice):
+                raise Exception(f'Error while sending message {tag} to {fd}')
+    except TimeoutError:
+        print(f'Timeout reached while sending message {tag} ')
+    finally:
+        signal.alarm(0)
 
 
-def recv(fd: int) -> (int, object):
+def recv(fd: int, timeout: Optional[int] = None) -> (int, object):
     filename = ''
     start_byte = 0
     end_byte = 0
 
-    # Receive total amount of packets
-    size = os.read(fd, 4)
-    if not size:
-        return MESSAGE_TAG.END, None
-    amount_of_packets = int.from_bytes(size, byteorder='big')
+    # Use signal.alarm for timeout
+    if timeout is not None:
+        signal.signal(signal.SIGALRM, _timeout_handler)
+        signal.alarm(timeout)
 
-    # Receive message tag
-    size = os.read(fd, 4)
-    if not size:
-        return MESSAGE_TAG.END, None
-    tag = int.from_bytes(size, byteorder='big')
-
-    if tag == 0:
-        raise Exception(f'Invalid tag received: {tag}')
-
-    tag = MESSAGE_TAG(tag)
-
-    if amount_of_packets == 0:
-        return tag, None
-
-    if tag == MESSAGE_TAG.FILE_DATA:
-        # Receive size of filename
+    try:
+        # Receive total amount of packets
         size = os.read(fd, 4)
         if not size:
             return MESSAGE_TAG.END, None
-        filename_size = int.from_bytes(size, byteorder='big')
+        amount_of_packets = int.from_bytes(size, byteorder='big')
 
-        # Receive filename
-        filename = os.read(fd, filename_size)
-        if not size:
-            return MESSAGE_TAG.END, None
-        filename = filename.decode('utf-8')
-
-        # Receive start byte
+        # Receive message tag
         size = os.read(fd, 4)
         if not size:
             return MESSAGE_TAG.END, None
-        start_byte = int.from_bytes(size, byteorder='big')
+        tag = int.from_bytes(size, byteorder='big')
 
-        # Receive end byte
-        size = os.read(fd, 4)
-        if not size:
-            return MESSAGE_TAG.END, None
-        end_byte = int.from_bytes(size, byteorder='big')
+        if tag == 0:
+            raise Exception(f'Invalid tag received: {tag}')
 
-    current_packet = 0
-    total_data = b''
+        tag = MESSAGE_TAG(tag)
 
-    while current_packet < amount_of_packets:
-        # Receive current packet number
-        size = os.read(fd, 4)
-        if not size:
-            return MESSAGE_TAG.END, None
-        current_packet = int.from_bytes(size, byteorder='big')
+        if amount_of_packets == 0:
+            return tag, None
 
-        # Receive message size first
-        size = os.read(fd, 4)
-        if not size:
-            return MESSAGE_TAG.END, None
-        message_size = int.from_bytes(size, byteorder='big')
+        if tag == MESSAGE_TAG.FILE_DATA:
+            # Receive size of filename
+            size = os.read(fd, 4)
+            if not size:
+                return MESSAGE_TAG.END, None
+            filename_size = int.from_bytes(size, byteorder='big')
 
-        # Receive message data
-        data = os.read(fd, message_size)
-        if not data and message_size != 0:
-            return MESSAGE_TAG.END, None
+            # Receive filename
+            filename = os.read(fd, filename_size)
+            if not size:
+                return MESSAGE_TAG.END, None
+            filename = filename.decode('utf-8')
 
-        if len(data) != message_size:
-            raise Exception(f'Error while receiving message from {fd}')
+            # Receive start byte
+            size = os.read(fd, 4)
+            if not size:
+                return MESSAGE_TAG.END, None
+            start_byte = int.from_bytes(size, byteorder='big')
 
-        total_data += data
-        current_packet += 1
+            # Receive end byte
+            size = os.read(fd, 4)
+            if not size:
+                return MESSAGE_TAG.END, None
+            end_byte = int.from_bytes(size, byteorder='big')
 
-    if tag == MESSAGE_TAG.FILE_DATA:
-        return tag, (filename, start_byte, end_byte, total_data)
+        current_packet = 0
+        total_data = b''
 
-    return tag, cbor2.loads(total_data)
+        while current_packet < amount_of_packets:
+            # Receive current packet number
+            size = os.read(fd, 4)
+            if not size:
+                return MESSAGE_TAG.END, None
+            current_packet = int.from_bytes(size, byteorder='big')
+
+            # Receive message size first
+            size = os.read(fd, 4)
+            if not size:
+                return MESSAGE_TAG.END, None
+            message_size = int.from_bytes(size, byteorder='big')
+
+            # Receive message data
+            data = os.read(fd, message_size)
+            if not data and message_size != 0:
+                return MESSAGE_TAG.END, None
+
+            if len(data) != message_size:
+                raise Exception(f'Error while receiving message from {fd}')
+
+            total_data += data
+            current_packet += 1
+
+        if tag == MESSAGE_TAG.FILE_DATA:
+            return tag, (filename, start_byte, end_byte, total_data)
+
+        return tag, cbor2.loads(total_data)
+    except TimeoutError:
+        print(f'Timeout reached while receiving message')
+    finally:
+        signal.alarm(0)
