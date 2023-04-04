@@ -31,10 +31,6 @@ class Server:
         self.wr = wr
         self.args = args
 
-    def sigpipe_handler(self, signum, frame):
-        self.logger.debug('SIGPIPE received')
-        sys.exit(0)
-
     def run(self):
         self.logger.info('Server started')
         self.loop()
