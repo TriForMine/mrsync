@@ -12,6 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+import atexit
 import datetime
 import sys
 from typing import Optional
@@ -28,6 +29,9 @@ class Logger:
         self.beautify = beautify
         self.debug_mode = debug_mode
 
+        # Register exit handler
+        atexit.register(self.exit_handler)
+
     @staticmethod
     def time_header():
         return datetime.datetime.now().strftime("%H:%M:%S")
@@ -40,6 +44,12 @@ class Logger:
                 fo.write(f"\033[{color}m{message}\033[0m\n")
         else:
             fo.write(f"{message}\n")
+
+        fo.flush()
+
+    def exit_handler(self):
+        sys.stdout.flush()
+        sys.stderr.flush()
 
     def log(self, message):
         if not self.quiet:

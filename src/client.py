@@ -11,6 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import os
 from argparse import Namespace
 from os import path
 from typing import List
@@ -30,8 +31,7 @@ class Client:
         self.args = args
 
     def run(self):
-        running = True
-        while running:
+        while True:
             (tag, v) = recv(self.rd)
 
             if tag == MESSAGE_TAG.ASK_FILE_LIST:
@@ -40,25 +40,33 @@ class Client:
                                                directory=self.args.dirs)
                 send(self.wr, MESSAGE_TAG.FILE_LIST, file_list)
             elif tag == MESSAGE_TAG.ASK_FILE_DATA:
-                self.logger.info(f'File data requested for {v}')
-                target_path = path.join(self.sources[0], v) if v != '' else self.sources[0]
+                (filename, part) = v
+
+                self.logger.info(f'File data requested for {filename}')
+                target_path = path.join(self.sources[0], filename) if filename != '' else self.sources[0]
                 if path.isdir(target_path):
-                    send(self.wr, MESSAGE_TAG.FILE_DATA, (v + '/', b''))
+                    send(self.wr, MESSAGE_TAG.FILE_DATA, (filename + '/', 0, 0, b''))
                 else:
-                    with open(target_path, 'rb') as f:
-                        data = f.read()
-                        send(self.wr, MESSAGE_TAG.FILE_DATA, (v, data))
+                    with open(target_path, "rb") as f:
+                        if part[0] == -1 or part[1] == -1:
+                            send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, 0, 0, f.read()))
+                        else:
+                            f.seek(part[0])
+                            data = f.read(part[1] - part[0] + 1)
+                            send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, part[0], part[1], data))
             elif tag == MESSAGE_TAG.END:
                 send(self.wr, MESSAGE_TAG.END, None)
                 self.logger.debug('End of transmission')
-                running = False
                 break
             elif tag == MESSAGE_TAG.GENERATOR_FINISHED:
                 self.logger.debug('[Stopping] Generator finished')
-                running = False
                 break
             elif tag == MESSAGE_TAG.DELETE_FILES:
                 self.logger.info(f'Deleting files {v}')
                 send(self.wr, MESSAGE_TAG.DELETE_FILES, v)
             else:
                 raise Exception(f'Unknown message tag {tag}')
+
+        self.logger.debug('Client finished')
+        os.close(self.rd)
+        os.close(self.wr)

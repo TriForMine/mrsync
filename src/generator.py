@@ -11,8 +11,9 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import os
 from os import path
-from typing import List
+from typing import List, Tuple
 
 from checksum import Checksum
 from message import send, MESSAGE_TAG
@@ -58,13 +59,14 @@ class Generator:
 
         return files
 
-    def get_modified_files(self) -> List[str]:
+    def get_modified_files(self) -> Tuple[List[str], List[List[Tuple[int, int]]]]:
         """
         Returns a list of files that are in both the source and destination lists, but have different checksums.
         :return: List of modified files
         """
 
         modified_files = []
+        bytes = []
 
         for file in self.source_list:
             if (file == "" and path.basename(
@@ -79,18 +81,28 @@ class Generator:
                 if path.isdir(destination_path):
                     continue  # Skip directories
 
-                source_checksum = Checksum(source_path)
-                destination_checksum = Checksum(destination_path)
+                optimal_file_division = 2
+                if self.args.whole_file:
+                    optimal_file_division = 1
 
-                if source_checksum != destination_checksum:
+                source_checksum = Checksum(source_path, divide=optimal_file_division)
+                modified_file_bytes = source_checksum.compare_with_file(destination_path)
+
+                if len(modified_file_bytes) > 0:
                     modified_files.append(file)
+                    # Calculate bytes to send
+                    bytes += [modified_file_bytes]
 
-        return modified_files
+        return modified_files, bytes
 
-    def send_file(self, files):
-        for file in files:
-            self.logger.debug(f"Sending file {file}...")
-            send(self.write_server, MESSAGE_TAG.ASK_FILE_DATA, file)
+    def ask_file(self, file, parts: List[Tuple[int, int]] = None):
+        for part in parts:
+            self.logger.debug(f"Asking for file {file} with part {part}...")
+            send(self.write_server, MESSAGE_TAG.ASK_FILE_DATA, (file, part))
+
+    def ask_files(self, files: List[str], files_parts: List[List[Tuple[int, int]]]):
+        for i in range(len(files)):
+            self.ask_file(files[i], files_parts[i])
 
     def run(self):
         """
@@ -99,34 +111,32 @@ class Generator:
 
         missing_files = self.get_missing_files()
         extra_files = self.get_extra_files()
-        modified_files = self.get_modified_files()
+        (modified_files, modified_files_parts) = self.get_modified_files()
 
         if missing_files:
-            print("Missing files:")
-            for file in missing_files:
-                self.logger.debug(f"Asking for file {file}...")
-                send(self.write_server, MESSAGE_TAG.ASK_FILE_DATA, file)
+            self.logger.debug("Missing files:")
+            # Ask for missing files, -1 means ask for the whole file
+            self.ask_files(missing_files, [[(-1, -1)] for _ in range(len(missing_files))])
         else:
-            print("No missing files.")
+            self.logger.debug("No missing files.")
 
         if extra_files:
-            print("Extra files:")
+            self.logger.debug("Extra files:")
             if self.args.delete:
-                self.logger.debug(f"Sending extra files {extra_files}...")
+                self.logger.debug(f"Deleting extra files {extra_files}...")
                 send(self.write_server, MESSAGE_TAG.DELETE_FILES, extra_files)
             else:
                 self.logger.debug(f"Ignoring extra files {extra_files}...")
 
         else:
-            print("No extra files.")
+            self.logger.debug("No extra files.")
 
         if modified_files:
-            print("Modified files:")
-            for file in modified_files:
-                self.logger.debug(f"Asking for file {file}...")
-                send(self.write_server, MESSAGE_TAG.ASK_FILE_DATA, file)
+            self.logger.debug("Modified files:")
+            self.ask_files(modified_files, modified_files_parts)
         else:
-            print("No modified files.")
+            self.logger.debug("No modified files.")
 
         self.logger.info("Generator finished")
         send(self.write_server, MESSAGE_TAG.GENERATOR_FINISHED, None)
+        os.close(self.write_server)

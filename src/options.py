@@ -47,6 +47,7 @@ def parse_args():
     parser.add_argument("--address", type=str, help="bind address for outgoing socket to daemon")
     parser.add_argument("--port", type=int, help="specify double-colon alternate port number")
     parser.add_argument("--list-only", action="store_true", help="list the files instead of copying them")
+    parser.add_argument("--whole-file", action="store_true", help="copy files whole (w/o dividing them into blocks)")
 
     return parser.parse_args()
 

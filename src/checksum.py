@@ -41,18 +41,27 @@ class Checksum:
             return
 
         self.parts = divide
+        self.path = path
+        self.checksums = self.calculate(max_size)
 
-        with open(path, "rb") as f:
+    def calculate(self, max_size: Optional[int] = None) -> List[str]:
+        """
+        Calculate the checksums.
+        """
+        checksums = []
+        with open(self.path, "rb") as f:
             f.seek(0, 2)
             size = f.tell()
             self.totalLength = size
             if max_size is not None and size > max_size:
                 size = max_size
-            self.partLength = size // divide
+
+            self.partLength = size // self.parts + 1
             f.seek(0)
-            self.checksums = []
-            for i in range(divide):
-                self.checksums.append(hashlib.md5(f.read(self.partLength)).hexdigest())
+            for i in range(self.parts):
+                checksums.append(hashlib.md5(f.read(self.partLength)).hexdigest())
+
+        return checksums
 
     def compare_with_file(self, path: str):
         """
@@ -71,8 +80,13 @@ class Checksum:
         if self.parts != other.parts:
             raise ValueError("The checksums have different parts.")
         parts = []
+
+        my_checksums = self.checksums
+        if self.totalLength > other.totalLength:
+            my_checksums = self.calculate(other.totalLength)
+
         for i in range(self.parts):
-            if self.checksums[i] != other.checksums[i]:
+            if my_checksums[i] != other.checksums[i]:
                 parts.append((i * self.partLength, (i + 1) * self.partLength))
 
         # Add the last part if it is not the same length as the other parts

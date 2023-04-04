@@ -41,7 +41,7 @@ class MESSAGE_TAG(Enum):
 
 def send(fd: int, tag: MESSAGE_TAG, v: object) -> None:
     if tag == MESSAGE_TAG.FILE_DATA:
-        (filename, data) = v
+        (filename, start, end, data) = v
     else:
         data = cbor2.dumps(v)
 
@@ -65,7 +65,13 @@ def send(fd: int, tag: MESSAGE_TAG, v: object) -> None:
         # Send filename
         os.write(fd, filename_data)
 
-        print(f'Sending filename {filename}')
+        # Send start byte
+        size = start.to_bytes(4, byteorder='big')
+        os.write(fd, size)
+
+        # Send end byte
+        size = end.to_bytes(4, byteorder='big')
+        os.write(fd, size)
 
     for i in range(amount_of_packets):
         slice = data[i * MAX_SIZE:(i + 1) * MAX_SIZE]
@@ -86,13 +92,19 @@ def send(fd: int, tag: MESSAGE_TAG, v: object) -> None:
 
 def recv(fd: int) -> (int, object):
     filename = ''
+    start_byte = 0
+    end_byte = 0
 
     # Receive total amount of packets
     size = os.read(fd, 4)
+    if not size:
+        return MESSAGE_TAG.END, None
     amount_of_packets = int.from_bytes(size, byteorder='big')
 
     # Receive message tag
     size = os.read(fd, 4)
+    if not size:
+        return MESSAGE_TAG.END, None
     tag = int.from_bytes(size, byteorder='big')
 
     if tag == 0:
@@ -106,11 +118,27 @@ def recv(fd: int) -> (int, object):
     if tag == MESSAGE_TAG.FILE_DATA:
         # Receive size of filename
         size = os.read(fd, 4)
+        if not size:
+            return MESSAGE_TAG.END, None
         filename_size = int.from_bytes(size, byteorder='big')
 
         # Receive filename
         filename = os.read(fd, filename_size)
+        if not size:
+            return MESSAGE_TAG.END, None
         filename = filename.decode('utf-8')
+
+        # Receive start byte
+        size = os.read(fd, 4)
+        if not size:
+            return MESSAGE_TAG.END, None
+        start_byte = int.from_bytes(size, byteorder='big')
+
+        # Receive end byte
+        size = os.read(fd, 4)
+        if not size:
+            return MESSAGE_TAG.END, None
+        end_byte = int.from_bytes(size, byteorder='big')
 
     current_packet = 0
     total_data = b''
@@ -118,14 +146,20 @@ def recv(fd: int) -> (int, object):
     while current_packet < amount_of_packets:
         # Receive current packet number
         size = os.read(fd, 4)
+        if not size:
+            return MESSAGE_TAG.END, None
         current_packet = int.from_bytes(size, byteorder='big')
 
         # Receive message size first
         size = os.read(fd, 4)
+        if not size:
+            return MESSAGE_TAG.END, None
         message_size = int.from_bytes(size, byteorder='big')
 
         # Receive message data
         data = os.read(fd, message_size)
+        if not data and message_size != 0:
+            return MESSAGE_TAG.END, None
 
         if len(data) != message_size:
             raise Exception(f'Error while receiving message from {fd}')
@@ -134,7 +168,6 @@ def recv(fd: int) -> (int, object):
         current_packet += 1
 
     if tag == MESSAGE_TAG.FILE_DATA:
-        print(f'File {filename} received ({len(total_data)} bytes)')
-        return tag, (filename, total_data)
+        return tag, (filename, start_byte, end_byte, total_data)
 
     return tag, cbor2.loads(total_data)

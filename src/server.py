@@ -31,6 +31,10 @@ class Server:
         self.wr = wr
         self.args = args
 
+    def sigpipe_handler(self, signum, frame):
+        self.logger.debug('SIGPIPE received')
+        sys.exit(0)
+
     def run(self):
         self.logger.info('Server started')
         self.loop()
@@ -50,6 +54,23 @@ class Server:
                                                                                          path.basename(self.source[0]))
             with open(target_path, "wb") as f:
                 f.write(data)
+
+    def handle_file_modification(self, file_name: str, start_byte: int, end_byte: int, data: bytes):
+        if not path.exists(path.dirname(path.join(self.destination, file_name))):
+            os.makedirs(path.dirname(path.join(self.destination, file_name)), exist_ok=True)
+
+        self.logger.info(f"Modifying file {file_name} from byte {start_byte} to {start_byte + len(data)}...")
+        target_path = path.join(self.destination, file_name) if file_name != '' else path.join(self.destination,
+                                                                                               path.basename(
+                                                                                                   self.source[0]))
+
+        with open(target_path, "r+b") as f:
+            f.seek(start_byte)
+            f.write(data)
+
+            # If data is smaller than end_byte - start_byte, we need to truncate the file
+            if len(data) < end_byte - start_byte:
+                f.truncate()
 
     def handle_file_deletion(self, files: list):
         if files is None:
@@ -84,8 +105,11 @@ class Server:
                     generator.run()
                     sys.exit(0)
             elif tag == MESSAGE_TAG.FILE_DATA:
-                (file_name, data) = v
-                self.handle_file_creation(file_name, data)
+                (file_name, start, end, data) = v
+                if not os.path.exists(path.join(self.destination, file_name)):
+                    self.handle_file_creation(file_name, data)
+                else:
+                    self.handle_file_modification(file_name, start, end, data)
             elif tag == MESSAGE_TAG.DELETE_FILES:
                 self.handle_file_deletion(v)
             elif tag == MESSAGE_TAG.END:
