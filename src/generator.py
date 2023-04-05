@@ -20,9 +20,13 @@ from message import send, MESSAGE_TAG
 
 
 class Generator:
-    def __init__(self, write_server, source, destination, source_list, destination_list, logger, args):
-        self.source_list = sorted(source_list)
-        self.destination_list = sorted(destination_list)
+    def __init__(self, write_server, source, destination, source_list: List[dict], destination_list: List[dict], logger,
+                 args):
+        # Sort source and destination lists with dict.path
+        self.source_list = sorted(source_list, key=lambda x: x["path"])
+        self.source_path_list = [x["path"] for x in self.source_list]
+        self.destination_list = sorted(destination_list, key=lambda x: x["path"])
+        self.destination_path_list = [x["path"] for x in self.destination_list]
         self.source = source
         self.destination = destination
         self.write_server = write_server
@@ -37,9 +41,12 @@ class Generator:
 
         files = []
 
-        for file in self.source_list:
-            if (file == "" and path.basename(
-                    self.source[0]) not in self.destination_list) or file not in self.destination_list:
+        for file_info in self.source_list:
+            file = file_info["path"]
+            if (file != "" or file == "" and path.basename(
+                    self.source[
+                        file_info[
+                            'source']]) not in self.destination_path_list) and file not in self.destination_path_list:
                 files.append(file)
 
         return files
@@ -52,9 +59,10 @@ class Generator:
 
         files = []
 
-        for file in self.destination_list:
-            if (file == "" and path.basename(
-                    self.destination) not in self.source_list) and file not in self.source_list:
+        for file_info in self.destination_list:
+            file = file_info["path"]
+            if (file != "" or file == "" and path.basename(
+                    self.destination) not in self.source_path_list) and file not in self.source_path_list:
                 files.append(file)
 
         return files
@@ -68,13 +76,17 @@ class Generator:
         modified_files = []
         bytes = []
 
-        for file in self.source_list:
-            if (file == "" and path.basename(
-                    self.source[0]) in self.destination_list) or file in self.destination_list:
-                source_path = path.join(self.source[0], file) if file != "" else self.source[0]
+        for file_info in self.source_list:
+            file = file_info["path"]
+            if (file != "" or file == "" and path.basename(
+                    self.source[
+                        file_info['source']]) in self.destination_path_list) or file in self.destination_path_list:
+                source_path = path.join(self.source[0], file) if file != "" else self.source[file_info['source']]
                 destination_path = path.join(self.destination, file) if file != "" else path.join(self.destination,
                                                                                                   path.basename(
-                                                                                                      self.source[0]))
+                                                                                                      self.source[
+                                                                                                          file_info[
+                                                                                                              'source']]))
 
                 if path.isdir(source_path):
                     continue  # Skip directories

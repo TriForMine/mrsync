@@ -13,10 +13,13 @@
 #    limitations under the License.
 import os
 import signal
+import time
 from enum import Enum
 from typing import Optional
 
 import cbor2
+
+from logger import Logger
 
 MAX_SIZE = 1024 * 63
 
@@ -40,12 +43,15 @@ class MESSAGE_TAG(Enum):
     # Delete files
     DELETE_FILES = 8
 
+    def __str__(self):
+        return self.name.replace('_', ' ').title()
 
-def _timeout_handler(signum, frame):
+
+def _timeout_handler(_signum, _frame):
     raise TimeoutError("Timeout reached.")
 
 
-def send(fd: int, tag: MESSAGE_TAG, v: object, timeout: Optional[int] = None) -> None:
+def send(fd: int, tag: MESSAGE_TAG, v: object, timeout: Optional[int] = None, logger: Optional[Logger] = None) -> None:
     # Use signal.alarm for timeout
     if timeout is not None:
         signal.signal(signal.SIGALRM, _timeout_handler)
@@ -58,6 +64,8 @@ def send(fd: int, tag: MESSAGE_TAG, v: object, timeout: Optional[int] = None) ->
             data = cbor2.dumps(v)
 
         amount_of_packets = len(data) // MAX_SIZE + 1
+        bytes_sent = 0
+        start_time = time.monotonic()
 
         # Send total amount of packets
         size = amount_of_packets.to_bytes(4, byteorder='big')
@@ -98,10 +106,34 @@ def send(fd: int, tag: MESSAGE_TAG, v: object, timeout: Optional[int] = None) ->
 
             # Send message data
             response = os.write(fd, slice)
+            bytes_sent += response
             if response != len(slice):
                 raise Exception(f'Error while sending message {tag} to {fd}')
+
+        # Calculate time taken to send the current packet
+        current_time = time.monotonic()
+        time_taken = current_time - start_time
+
+        average_speed = bytes_sent / time_taken
+
+        # Convert to MB/s
+        average_speed /= 1024 * 1024
+        # Round to 2 decimal places
+        average_speed = round(average_speed, 2)
+
+        time_taken = round(time_taken, 2)
+
+        # Convert to MB
+        bytes_sent /= 1024 * 1024
+        bytes_sent = round(bytes_sent, 2)
+
+        if logger is not None:
+            logger.debug(
+                f'Sent {tag} to {fd} in {time_taken} seconds at {average_speed} MB/s ({bytes_sent} MB)')
+
     except TimeoutError:
-        print(f'Timeout reached while sending message {tag} ')
+        if logger is not None:
+            logger.error(f'Timeout reached while sending message {tag} ')
     finally:
         signal.alarm(0)
 

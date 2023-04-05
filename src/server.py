@@ -102,7 +102,7 @@ class Server:
         destination_files = generate_file_list([self.destination], self.logger, recursive=self.args.recursive,
                                                directory=True)
 
-        send(self.wr, MESSAGE_TAG.ASK_FILE_LIST, None, timeout=self.args.timeout)
+        send(self.wr, MESSAGE_TAG.ASK_FILE_LIST, None, timeout=self.args.timeout, logger=self.logger)
         while True:
             tag, v = recv(self.rd, timeout=self.args.timeout)
 
