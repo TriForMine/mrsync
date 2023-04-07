@@ -90,6 +90,11 @@ class Server:
             self.logger.warn(f"Cannot modify directory {file_name}")
 
     def handle_file_deletion(self, files: list):
+        """
+
+        :param files:
+        :return:
+        """
         if files is None:
             return
 

@@ -39,11 +39,11 @@ class MESSAGE_TAG(Enum):
     # File data offset
     FILE_DATA_OFFSET = 6
     # End of transmission
-    END = 6
+    END = 7
     # Generator finished
-    GENERATOR_FINISHED = 7
+    GENERATOR_FINISHED = 8
     # Delete files
-    DELETE_FILES = 8
+    DELETE_FILES = 9
 
     def __str__(self):
         return self.name.replace('_', ' ').title()
