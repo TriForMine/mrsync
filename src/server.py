@@ -14,6 +14,7 @@
 import os
 import shutil
 import sys
+import time
 from argparse import Namespace
 from os import path
 
@@ -34,8 +35,11 @@ class Server:
 
     def run(self):
         self.logger.info('Server started')
+        t1= time.time()
         self.loop()
+        t2 = time.time()
         self.logger.info('Server stopped')
+        self.logger.info(f"Time elapsed: {t2-t1:.2f}s")
         sys.exit(0)
 
     def handle_file_creation(self, file: str, data: bytes):
@@ -73,14 +77,17 @@ class Server:
         target_path = path.join(self.destination, file_name) if file_name != '' else path.join(self.destination,
                                                                                                path.basename(
                                                                                                    self.source[0]))
+        # verify if not a directory
+        if not path.isdir(target_path):
+            with open(target_path, "r+b") as f:
+                f.seek(start_byte)
+                f.write(data)
 
-        with open(target_path, "r+b") as f:
-            f.seek(start_byte)
-            f.write(data)
-
-            # If data is smaller than end_byte - start_byte, we need to truncate the file
-            if len(data) < end_byte - start_byte:
-                f.truncate()
+                # If data is smaller than end_byte - start_byte, we need to truncate the file
+                if len(data) < end_byte - start_byte:
+                    f.truncate()
+        else:
+            self.logger.warn(f"Cannot modify directory {file_name}")
 
     def handle_file_deletion(self, files: list):
         if files is None:
@@ -88,6 +95,7 @@ class Server:
 
         for file in files:
             self.logger.info(f"Deleting {file}...")
+            print(self.destination, file)
             if path.isdir(path.join(self.destination, file)):
                 try:
                     os.rmdir(path.join(self.destination, file))

@@ -77,6 +77,8 @@ class Generator:
         bytes = []
 
         for file_info in self.source_list:
+            if file_info not in self.destination_list:
+                continue
             file = file_info["path"]
             if (file != "" or file == "" and path.basename(
                     self.source[
