@@ -12,19 +12,18 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-import hashlib
-
+import zlib
 from typing import List, Optional, Tuple
 
 
 class Checksum:
     parts: int
-    checksums: List[str]
+    checksums: List[int]
     partLength: int
     totalLength: int
 
     def __init__(self, path: str, divide: int = 2, max_size: Optional[int] = None, total_length: Optional[int] = None,
-                 checksums: Optional[List[str]] = None, part_length: Optional[int] = None):
+                 checksums: Optional[List[int]] = None, part_length: Optional[int] = None):
         """
         Create a divide checksum of a file.
         :param path:  The path to the file.
@@ -44,7 +43,7 @@ class Checksum:
         self.path = path
         self.checksums = self.calculate(max_size)
 
-    def calculate(self, max_size: Optional[int] = None) -> List[str]:
+    def calculate(self, max_size: Optional[int] = None) -> List[int]:
         """
         Calculate the checksums.
         """
@@ -59,7 +58,7 @@ class Checksum:
             self.partLength = size // self.parts + 1
             f.seek(0)
             for i in range(self.parts):
-                checksums.append(hashlib.md5(f.read(self.partLength)).hexdigest())
+                checksums.append(zlib.adler32(f.read(self.partLength)))
 
         return checksums
 
@@ -71,29 +70,50 @@ class Checksum:
         """
         return self.get_difference_bytes(Checksum(path, self.parts, self.totalLength))
 
-    def get_difference_bytes(self, other) -> List[Tuple[int, int]]:
+    def get_difference_bytes(self, other: "Checksum") -> List[Tuple[int, int, int]]:
         """
         Get the bytes that are different between this file and another file.
-        :param other:
+        :param other: Another Checksum object representing the other file to compare to.
         :return:
         """
         if self.parts != other.parts:
             raise ValueError("The checksums have different parts.")
         parts = []
 
-        my_checksums = self.checksums
         if self.totalLength > other.totalLength:
-            my_checksums = self.calculate(other.totalLength)
+            self.calculate(other.totalLength)
 
-        for i in range(self.parts):
-            if my_checksums[i] != other.checksums[i]:
-                parts.append((i * self.partLength, (i + 1) * self.partLength))
+        # Compare the checksums
+        with open(self.path, "rb") as f1:
+            window = 0
+
+            for i in range(self.parts):
+
+                while window < self.partLength:
+                    f1.seek(i * self.partLength + window)
+
+                    if zlib.adler32(f1.read(self.partLength)) == other.checksums[i]:
+                        if window > 0:
+                            # Send the part between the start and the offset
+                            parts.append((i * self.partLength, i * self.partLength + window, 0))
+                            # Send an offset representing the part that is the same
+                            parts.append((i * self.partLength, (i + 1) * self.partLength - window, window))
+                        break
+                    window += 1
+
+                # All windows have been checked and no match was found.
+                # Add the whole part as a difference.
+                if window >= self.partLength:
+                    parts.append((i * self.partLength, (i + 1) * self.partLength, 0))
+                    window = 0
 
         # Add the last part if it is not the same length as the other parts
         if self.totalLength < other.totalLength:
-            parts.append((self.totalLength, other.totalLength))
+            if len(parts) == 0 or (parts[-1][1] + parts[-1][2]) != other.totalLength:
+                parts.append((self.totalLength, other.totalLength, 0))
         elif self.totalLength > other.totalLength:
-            parts.append((other.totalLength, self.totalLength))
+            if len(parts) == 0 or (parts[-1][1] + parts[-1][2]) != self.totalLength:
+                parts.append((other.totalLength, self.totalLength, 0))
 
         # Group parts that are next to each other
         return_parts = []
@@ -101,10 +121,15 @@ class Checksum:
             if len(return_parts) == 0:
                 return_parts.append(part)
                 continue
-            if return_parts[-1][1] == part[0]:
-                return_parts[-1] = (return_parts[-1][0], part[1])
+            if return_parts[-1][1] == part[0] and return_parts[-1][2] == part[2]:
+                return_parts[-1] = (return_parts[-1][0], part[1], return_parts[-1][2])
+            elif return_parts[-1][1] > part[0] and return_parts[-1][2] == part[2]:
+                return_parts[-1] = (return_parts[-1][0], max(return_parts[-1][1], part[1]), return_parts[-1][2])
             else:
                 return_parts.append(part)
+
+        # Order the parts by offset since the offset need to be applied first
+        return_parts.sort(key=lambda x: -x[2])
 
         return return_parts
 

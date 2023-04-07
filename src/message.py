@@ -36,6 +36,8 @@ class MESSAGE_TAG(Enum):
     FILE_DATA = 4
     # File data end
     FILE_DATA_END = 5
+    # File data offset
+    FILE_DATA_OFFSET = 6
     # End of transmission
     END = 6
     # Generator finished

@@ -35,11 +35,11 @@ class Server:
 
     def run(self):
         self.logger.info('Server started')
-        t1= time.time()
+        t1 = time.time()
         self.loop()
         t2 = time.time()
         self.logger.info('Server stopped')
-        self.logger.info(f"Time elapsed: {t2-t1:.2f}s")
+        self.logger.info(f"Time elapsed: {t2 - t1:.2f}s")
         sys.exit(0)
 
     def handle_file_creation(self, file: str, data: bytes):
@@ -106,6 +106,43 @@ class Server:
             else:
                 os.remove(path.join(self.destination, file))
 
+    def handle_file_offset(self, file_name: str, start_byte: int, end_byte: int, offset: int):
+        """
+        Move all the content from start_byte to end_byte by offset.
+        :param file_name:
+        :param start_byte:
+        :param end_byte:
+        :param offset:
+        :return:
+        """
+        if self.args.ignore_existing:
+            return
+
+        if not path.exists(path.dirname(path.join(self.destination, file_name))):
+            os.makedirs(path.dirname(path.join(self.destination, file_name)), exist_ok=True)
+
+        self.logger.info(f"Moving file {file_name} from byte {start_byte} to {end_byte}...")
+        target_path = path.join(self.destination, file_name) if file_name != '' else path.join(self.destination,
+                                                                                               path.basename(
+                                                                                                   self.source[0]))
+        # verify if not a directory
+        if not path.isdir(target_path):
+            with open(target_path, "r+b") as f:
+                f.seek(start_byte)
+                data = f.read(end_byte - start_byte + 1)
+                f.seek(start_byte + offset)
+                f.write(data)
+
+                # Replace the offset with empty bytes
+                f.seek(start_byte)
+                f.write(b'\x00' * offset)
+
+                # If data is smaller than end_byte - start_byte, we need to truncate the file
+                if len(data) < end_byte - start_byte:
+                    f.truncate()
+        else:
+            self.logger.warn(f"Cannot modify directory {file_name}")
+
     def loop(self):
         destination_files = generate_file_list([self.destination], self.logger, recursive=self.args.recursive,
                                                directory=True)
@@ -133,6 +170,9 @@ class Server:
                     self.handle_file_creation(file_name, data)
                 else:
                     self.handle_file_modification(file_name, start, end, data)
+            elif tag == MESSAGE_TAG.FILE_DATA_OFFSET:
+                (file_name, start, end, offset) = v
+                self.handle_file_offset(file_name, start, end, offset)
             elif tag == MESSAGE_TAG.DELETE_FILES:
                 self.handle_file_deletion(v)
             elif tag == MESSAGE_TAG.END:

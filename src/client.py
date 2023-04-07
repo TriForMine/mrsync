@@ -49,7 +49,10 @@ class Client:
                          logger=self.logger)
                 else:
                     with open(target_path, "rb") as f:
-                        if part[0] == -1 or part[1] == -1:
+                        if part[2] > 0:
+                            send(self.wr, MESSAGE_TAG.FILE_DATA_OFFSET, (filename, part[0], part[1], part[2]),
+                                 timeout=self.args.timeout, logger=self.logger)
+                        elif part[0] == -1 or part[1] == -1:
                             send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, 0, 0, f.read()), timeout=self.args.timeout,
                                  logger=self.logger)
                         else:
