@@ -102,7 +102,7 @@ class Checksum:
                             parts.append((i * self.partLength, (i + 1) * self.partLength - window, window))
                         break
 
-                    if len(read_data) < window:
+                    if len(read_data) <= window:
                         parts.append((i * self.partLength, (i + 1) * self.partLength, 0))
                         break
 
