@@ -19,6 +19,7 @@ from typing import List
 from filelist import generate_file_list
 from logger import Logger
 from message import recv, MESSAGE_TAG, send
+from checksum import Checksum
 
 
 class Client:
@@ -40,7 +41,7 @@ class Client:
                                                directory=self.args.dirs, options=v)
                 send(self.wr, MESSAGE_TAG.FILE_LIST, file_list, timeout=self.args.timeout, logger=self.logger)
             elif tag == MESSAGE_TAG.ASK_FILE_DATA:
-                (filename, part) = v
+                (filename, checksums, total_length) = v
 
                 self.logger.info(f'File data requested for {filename}')
                 target_path = path.join(self.sources[0], filename) if filename != '' else self.sources[0]
@@ -52,17 +53,32 @@ class Client:
                     with open(target_path, "rb") as f:
                         m_time = os.path.getmtime(target_path)
 
-                        if part[2] > 0:
-                            send(self.wr, MESSAGE_TAG.FILE_DATA_OFFSET, (filename, part[0], part[1], part[2]),
-                                 timeout=self.args.timeout, logger=self.logger)
-                        elif part[0] == -1 or part[1] == -1:
+                        if not checksums:
                             send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, 0, 0, True, m_time, f.read()), timeout=self.args.timeout,
                                  logger=self.logger)
+                            continue
+
+                        destination_checksum = Checksum("", checksums=checksums, part_length=total_length/len(checksums), total_length=total_length)
+                        parts = destination_checksum.compare_with_file(target_path)
+
+                        if len(parts) == 0:
+                            self.logger.info(f'File {filename} is already up to date')
+                            send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, 0, 0, False, m_time, b''), timeout=self.args.timeout,
+                                 logger=self.logger)
+                            continue
                         else:
-                            f.seek(part[0])
-                            data = f.read(part[1] - part[0] + 1)
-                            send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, part[0], part[1], False, m_time, data),
-                                 timeout=self.args.timeout, logger=self.logger)
+                            for part in parts:
+                                if part[2] > 0:
+                                    send(self.wr, MESSAGE_TAG.FILE_DATA_OFFSET, (filename, part[0], part[1], part[2]),
+                                         timeout=self.args.timeout, logger=self.logger)
+                                elif part[0] == -1 or part[1] == -1:
+                                    send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, 0, 0, True, m_time, f.read()), timeout=self.args.timeout,
+                                         logger=self.logger)
+                                else:
+                                    f.seek(part[0])
+                                    data = f.read(part[1] - part[0] + 1)
+                                    send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, part[0], part[1], False, m_time, data),
+                                         timeout=self.args.timeout, logger=self.logger)
             elif tag == MESSAGE_TAG.END:
                 send(self.wr, MESSAGE_TAG.END, None, timeout=self.args.timeout, logger=self.logger)
                 self.logger.debug('End of transmission')

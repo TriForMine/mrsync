@@ -22,7 +22,7 @@ class Checksum:
     partLength: int
     totalLength: int
 
-    def __init__(self, path: str, divide: int = 2, max_size: Optional[int] = None, total_length: Optional[int] = None,
+    def __init__(self, path: str = "", divide: int = 2, max_size: Optional[int] = None, total_length: Optional[int] = None,
                  checksums: Optional[List[int]] = None, part_length: Optional[int] = None):
         """
         Create a divide checksum of a file.
@@ -38,6 +38,9 @@ class Checksum:
             self.partLength = part_length
             self.totalLength = total_length
             return
+
+        if path == "":
+            raise ValueError("Path cannot be empty if checksums is None.")
 
         self.parts = divide
         self.path = path
@@ -80,30 +83,31 @@ class Checksum:
             raise ValueError("The checksums have different parts.")
         parts = []
 
-        if self.totalLength > other.totalLength:
-            self.calculate(other.totalLength)
+        if self.totalLength < other.totalLength:
+            print("The file is smaller than the other file.")
+            other.calculate(self.totalLength)
 
         # Compare the checksums
-        with open(self.path, "rb") as f1:
+        with open(other.path, "rb") as f1:
             window = 0
 
-            for i in range(self.parts):
-                f1.seek(i * self.partLength + window)
+            for i in range(other.parts):
+                f1.seek(i * other.partLength + window)
 
-                read_data = f1.read(self.partLength)
+                read_data = f1.read(other.partLength)
                 current_hash = Adler32(read_data)
 
-                while window < self.partLength:
-                    if current_hash.checksum == other.checksums[i]:
+                while window < other.partLength:
+                    if current_hash.checksum == self.checksums[i]:
                         if window > 0:
                             # Send the part between the start and the offset
-                            parts.append((i * self.partLength, i * self.partLength + window, 0))
+                            parts.append((i * other.partLength, i * other.partLength + window, 0))
                             # Send an offset representing the part that is the same
-                            parts.append((i * self.partLength, (i + 1) * self.partLength - window, window))
+                            parts.append((i * other.partLength, (i + 1) * other.partLength - window, window))
                         break
 
                     if len(read_data) <= window:
-                        parts.append((i * self.partLength, (i + 1) * self.partLength, 0))
+                        parts.append((i * other.partLength, (i + 1) * other.partLength, 0))
                         break
 
                     first_byte = bytes([read_data[window]])
@@ -115,8 +119,8 @@ class Checksum:
 
                 # All windows have been checked and no match was found.
                 # Add the whole part as a difference.
-                if window >= self.partLength:
-                    parts.append((i * self.partLength, (i + 1) * self.partLength, 0))
+                if window >= other.partLength:
+                    parts.append((i * other.partLength, (i + 1) * other.partLength, 0))
                     window = 0
 
         # Add the last part if it is not the same length as the other parts

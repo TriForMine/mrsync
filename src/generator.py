@@ -68,14 +68,15 @@ class Generator:
 
         return files
 
-    def get_modified_files(self) -> Tuple[List[Any], List[List[Tuple[int, int, int]]]]:
+    def get_modified_files(self) -> Tuple[List[str], List[List[int]], List[int]]:
         """
         Returns a list of files that are in both the source and destination lists, but have different checksums.
         :return: List of modified files
         """
 
         modified_files = []
-        bytes = []
+        checksums = []
+        total_lengths = []
 
         for file_info in self.source_list:
             if file_info["path"] not in self.destination_path_list:
@@ -84,61 +85,42 @@ class Generator:
             if (file != "" or file == "" and path.basename(
                     self.source[
                         file_info['source']]) in self.destination_path_list) or file in self.destination_path_list:
-                #source_path = path.join(self.source[0], file) if file != "" else self.source[file_info['source']]
-                #destination_path = path.join(self.destination, file) if file != "" else path.join(self.destination,
-                #                                                                                  path.basename(
-                #                                                                                      self.source[
-                #                                                                                          file_info[
-                #                                                                                              'source']]))
 
                 if file_info["type"] == FileType.DIRECTORY.value:
                     continue
 
+                destination_index = self.destination_path_list.index(file)
+                destination_info = self.destination_list[destination_index]
+                is_modified = False
+
                 if self.args.checksum:
-                    if file_info["checksum"] != self.destination_list[self.destination_path_list.index(file)][
+                    if file_info["checksum"] != destination_info[
                         "checksum"]:
-                        modified_files.append(file)
-                        bytes.append([(-1, -1, 0)])
-                        continue
+                        self.logger.debug(f"File {file} has different checksum. (Source: {file_info['checksum']}, Destination: {destination_info['checksum']})")
+                        is_modified = True
                 else:
-                    if file_info["size"] != self.destination_list[self.destination_path_list.index(file)]["size"]:
-                        self.logger.info(f"File {file} has different size. (Source: {file_info['size']}, Destination: {self.destination_list[self.destination_path_list.index(file)]['size']})")
-                        modified_files.append(file)
-                        bytes.append([(-1, -1, 0)])
-                        continue
-                    elif not self.args.ignore_times and file_info["mtime"] != self.destination_list[self.destination_path_list.index(file)]["mtime"]:
-                        self.logger.info(f"File {file} has different modification time. (Source: {file_info['mtime']}, Destination: {self.destination_list[self.destination_path_list.index(file)]['mtime']})")
-                        modified_files.append(file)
-                        bytes.append([(-1, -1, 0)])
-                        continue
+                    if file_info["size"] != destination_info["size"]:
+                        is_modified = True
+                        self.logger.debug(f"File {file} has different size. (Source: {file_info['size']}, Destination: {destination_info['size']})")
+                    elif not self.args.ignore_times and file_info["mtime"] != destination_info["mtime"]:
+                        is_modified = True
+                        self.logger.debug(f"File {file} has different modification time. (Source: {file_info['mtime']}, Destination: {destination_info['mtime']})")
 
-                #optimal_file_division = 2
-                #if self.args.whole_file:
-                #    optimal_file_division = 1
+                if is_modified:
+                    modified_files.append(file)
+                    destination_path = path.join(self.destination, destination_info["path"])
+                    checksum = Checksum(destination_path)
+                    checksums.append(checksum.checksums)
+                    total_lengths.append(checksum.totalLength)
 
-                #source_checksum = Checksum(source_path, divide=optimal_file_division)
-                #modified_file_bytes = source_checksum.compare_with_file(destination_path)
+        return modified_files, checksums, total_lengths
 
-                #if len(modified_file_bytes) > 0:
-                #    modified_files.append(file)
-                #    # Calculate bytes to send
-                #    bytes += [modified_file_bytes]
+    def ask_file(self, file, checksums: List[int], total_length: int):
+        send(self.write_server, MESSAGE_TAG.ASK_FILE_DATA, (file, checksums, total_length), timeout=self.args.timeout)
 
-        print(f"Modified files: {modified_files} (bytes: {bytes})")
-
-        return modified_files, bytes
-
-    def ask_file(self, file, parts: List[Tuple[int, int, int]] = None):
-        for part in parts:
-            if part[2] == 0:
-                self.logger.debug(f"Asking for file {file} from byte {part[0]} to byte {part[1]}...")
-            else:
-                self.logger.debug(f"Asking for modifying file {file} from byte {part[0]} to byte {part[1]} with an offset of {part[2]}...")
-            send(self.write_server, MESSAGE_TAG.ASK_FILE_DATA, (file, part), timeout=self.args.timeout)
-
-    def ask_files(self, files: List[str], files_parts: List[List[Tuple[int, int, int]]]):
+    def ask_files(self, files: List[str], checksums: List[List[int]], total_lengths: List[int]):
         for i in range(len(files)):
-            self.ask_file(files[i], files_parts[i])
+            self.ask_file(files[i], checksums[i], total_lengths[i])
 
     def run(self):
         """
@@ -147,12 +129,12 @@ class Generator:
 
         missing_files = self.get_missing_files()
         extra_files = self.get_extra_files()
-        (modified_files, modified_files_parts) = self.get_modified_files()
+        (modified_files, checksums, total_lengths) = self.get_modified_files()
 
         if missing_files:
             self.logger.debug("Missing files:")
             # Ask for missing files, -1 means ask for the whole file
-            self.ask_files(missing_files, [[(-1, -1, 0)] for _ in range(len(missing_files))])
+            self.ask_files(missing_files, [[] for _ in missing_files], [-1 for _ in missing_files], [-1 for _ in missing_files])
         else:
             self.logger.debug("No missing files.")
 
@@ -169,7 +151,7 @@ class Generator:
 
         if modified_files:
             self.logger.debug("Modified files:")
-            self.ask_files(modified_files, modified_files_parts)
+            self.ask_files(modified_files, checksums, total_lengths)
         else:
             self.logger.debug("No modified files.")
 
