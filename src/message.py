@@ -61,7 +61,7 @@ def send(fd: int, tag: MESSAGE_TAG, v: object, timeout: Optional[int] = None, lo
 
     try:
         if tag == MESSAGE_TAG.FILE_DATA:
-            (filename, start, end, data) = v
+            (filename, start, end, whole_file, modification_time, data) = v
         else:
             data = cbor2.dumps(v)
 
@@ -93,6 +93,14 @@ def send(fd: int, tag: MESSAGE_TAG, v: object, timeout: Optional[int] = None, lo
 
             # Send end byte
             size = end.to_bytes(4, byteorder='big')
+            os.write(fd, size)
+
+            # Send whole file
+            size = whole_file.to_bytes(1, byteorder='big')
+            os.write(fd, size)
+
+            # Send modification time
+            size = int(modification_time).to_bytes(4, byteorder='big')
             os.write(fd, size)
 
         for i in range(amount_of_packets):
@@ -144,6 +152,8 @@ def recv(fd: int, timeout: Optional[int] = None) -> (int, object):
     filename = ''
     start_byte = 0
     end_byte = 0
+    whole_file = False
+    modification_time = 0
 
     # Use signal.alarm for timeout
     if timeout is not None:
@@ -196,6 +206,18 @@ def recv(fd: int, timeout: Optional[int] = None) -> (int, object):
                 return MESSAGE_TAG.END, None
             end_byte = int.from_bytes(size, byteorder='big')
 
+            # Receive whole file
+            size = os.read(fd, 1)
+            if not size:
+                return MESSAGE_TAG.END, None
+            whole_file = int.from_bytes(size, byteorder='big')
+
+            # Receive modification time
+            size = os.read(fd, 4)
+            if not size:
+                return MESSAGE_TAG.END, None
+            modification_time = int.from_bytes(size, byteorder='big')
+
         current_packet = 0
         total_data = b''
 
@@ -218,13 +240,13 @@ def recv(fd: int, timeout: Optional[int] = None) -> (int, object):
                 return MESSAGE_TAG.END, None
 
             if len(data) != message_size:
-                raise Exception(f'Error while receiving message from {fd}')
+                raise Exception(f'Error while receiving message from {fd} it was {len(data)} bytes instead of {message_size} bytes')
 
             total_data += data
             current_packet += 1
 
         if tag == MESSAGE_TAG.FILE_DATA:
-            return tag, (filename, start_byte, end_byte, total_data)
+            return tag, (filename, start_byte, end_byte, whole_file, modification_time, total_data)
 
         return tag, cbor2.loads(total_data)
     except TimeoutError:

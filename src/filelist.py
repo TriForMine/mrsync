@@ -16,6 +16,8 @@ from enum import Enum
 from time import strftime, localtime
 from typing import List, Optional
 
+from adler32 import Adler32
+
 
 # Enum bitfield for info to include in file list.
 
@@ -33,6 +35,7 @@ class FileListInfo(Enum):
     PERMISSIONS = 2
     FILE_SIZE = 4
     FILE_TIMES = 8
+    CHECKSUM = 16
 
     def __str__(self):
         return self.name.replace('_', ' ').title()
@@ -60,9 +63,13 @@ def generate_file_list(sources: List[str], logger,
                     if options & FileListInfo.FILE_SIZE.value:
                         file_info['size'] = os.stat(file_path).st_size
                     if options & FileListInfo.FILE_TIMES.value:
-                        file_info['atime'] = os.stat(file_path).st_atime
-                        file_info['mtime'] = os.stat(file_path).st_mtime
-                        file_info['ctime'] = os.stat(file_path).st_ctime
+                        # Convert to UNIX timestamp
+                        file_info['atime'] = int(os.stat(file_path).st_atime)
+                        file_info['mtime'] = int(os.stat(file_path).st_mtime)
+                        file_info['ctime'] = int(os.stat(file_path).st_ctime)
+                    if options & FileListInfo.CHECKSUM.value:
+                        with open(file_path, 'rb') as f:
+                            file_info['checksum'] = Adler32(f.read()).checksum
                     file_list.append(file_info)
                 for dir in dirs:
                     dir_path = os.path.join(root, dir)
@@ -75,9 +82,9 @@ def generate_file_list(sources: List[str], logger,
                     if options & FileListInfo.FILE_SIZE.value:
                         dir_info['size'] = os.stat(dir_path).st_size
                     if options & FileListInfo.FILE_TIMES.value:
-                        dir_info['atime'] = os.stat(dir_path).st_atime
-                        dir_info['mtime'] = os.stat(dir_path).st_mtime
-                        dir_info['ctime'] = os.stat(dir_path).st_ctime
+                        dir_info['atime'] = int(os.stat(dir_path).st_atime)
+                        dir_info['mtime'] = int(os.stat(dir_path).st_mtime)
+                        dir_info['ctime'] = int(os.stat(dir_path).st_ctime)
                     file_list.append(dir_info)
 
                 if not recursive:
@@ -91,9 +98,12 @@ def generate_file_list(sources: List[str], logger,
             if options & FileListInfo.FILE_SIZE.value:
                 file_info['size'] = os.stat(source).st_size
             if options & FileListInfo.FILE_TIMES.value:
-                file_info['atime'] = os.stat(source).st_atime
-                file_info['mtime'] = os.stat(source).st_mtime
-                file_info['ctime'] = os.stat(source).st_ctime
+                file_info['atime'] = int(os.stat(source).st_atime)
+                file_info['mtime'] = int(os.stat(source).st_mtime)
+                file_info['ctime'] = int(os.stat(source).st_ctime)
+            if options & FileListInfo.CHECKSUM.value:
+                with open(source, 'rb') as f:
+                    file_info['checksum'] = Adler32(f.read()).checksum
             file_list.append(file_info)
 
     logger.debug("File list generated.")

@@ -18,7 +18,7 @@ import time
 from argparse import Namespace
 from os import path
 
-from filelist import generate_file_list
+from filelist import generate_file_list, FileListInfo
 from generator import Generator
 from logger import Logger
 from message import recv, send, MESSAGE_TAG
@@ -66,7 +66,7 @@ class Server:
             with open(target_path, "wb") as f:
                 f.write(data)
 
-    def handle_file_modification(self, file_name: str, start_byte: int, end_byte: int, data: bytes):
+    def handle_file_modification(self, file_name: str, start_byte: int, end_byte: int, whole_file: bool, modification_time: float, data: bytes):
         if self.args.ignore_existing:
             return
 
@@ -86,6 +86,12 @@ class Server:
                 # If data is smaller than end_byte - start_byte, we need to truncate the file
                 if len(data) < end_byte - start_byte:
                     f.truncate()
+
+                if whole_file:
+                    f.truncate()
+
+            atime = os.path.getatime(target_path)
+            os.utime(target_path, (atime, modification_time))
         else:
             self.logger.warn(f"Cannot modify directory {file_name}")
 
@@ -149,10 +155,28 @@ class Server:
             self.logger.warn(f"Cannot modify directory {file_name}")
 
     def loop(self):
-        destination_files = generate_file_list([self.destination], self.logger, recursive=self.args.recursive,
-                                               directory=True)
+        file_list_flags = 0
 
-        send(self.wr, MESSAGE_TAG.ASK_FILE_LIST, None, timeout=self.args.timeout, logger=self.logger)
+        if self.args.hard_links:
+            file_list_flags |= FileListInfo.HARD_LINKS.value
+        if self.args.perms:
+            file_list_flags |= FileListInfo.PERMISSIONS.value
+        if self.args.times:
+            file_list_flags |= FileListInfo.FILE_TIMES.value
+        if self.args.size_only:
+            file_list_flags |= FileListInfo.FILE_SIZE.value
+        if self.args.checksum:
+            file_list_flags |= FileListInfo.CHECKSUM.value
+
+        if not self.args.checksum:
+            file_list_flags |= FileListInfo.FILE_SIZE.value
+            file_list_flags |= FileListInfo.FILE_TIMES.value
+
+
+        destination_files = generate_file_list([self.destination], self.logger, recursive=self.args.recursive,
+                                               directory=True, options=file_list_flags)
+
+        send(self.wr, MESSAGE_TAG.ASK_FILE_LIST, file_list_flags, timeout=self.args.timeout, logger=self.logger)
         while True:
             tag, v = recv(self.rd, timeout=self.args.timeout)
 
@@ -170,11 +194,11 @@ class Server:
                     generator.run()
                     sys.exit(0)
             elif tag == MESSAGE_TAG.FILE_DATA:
-                (file_name, start, end, data) = v
+                (file_name, start, end, whole_file, modification_time, data) = v
                 if not os.path.exists(path.join(self.destination, file_name)):
                     self.handle_file_creation(file_name, data)
                 else:
-                    self.handle_file_modification(file_name, start, end, data)
+                    self.handle_file_modification(file_name, start, end, whole_file, modification_time, data)
             elif tag == MESSAGE_TAG.FILE_DATA_OFFSET:
                 (file_name, start, end, offset) = v
                 self.handle_file_offset(file_name, start, end, offset)

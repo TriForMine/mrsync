@@ -13,10 +13,11 @@
 #    limitations under the License.
 import os
 from os import path
-from typing import List, Tuple
+from typing import List, Tuple, Any
 
 from checksum import Checksum
 from message import send, MESSAGE_TAG
+from filelist import FileType
 
 
 class Generator:
@@ -67,7 +68,7 @@ class Generator:
 
         return files
 
-    def get_modified_files(self) -> Tuple[List[str], List[List[Tuple[int, int]]]]:
+    def get_modified_files(self) -> Tuple[List[Any], List[List[Tuple[int, int, int]]]]:
         """
         Returns a list of files that are in both the source and destination lists, but have different checksums.
         :return: List of modified files
@@ -77,35 +78,53 @@ class Generator:
         bytes = []
 
         for file_info in self.source_list:
-            if file_info not in self.destination_list:
+            if file_info["path"] not in self.destination_path_list:
                 continue
             file = file_info["path"]
             if (file != "" or file == "" and path.basename(
                     self.source[
                         file_info['source']]) in self.destination_path_list) or file in self.destination_path_list:
-                source_path = path.join(self.source[0], file) if file != "" else self.source[file_info['source']]
-                destination_path = path.join(self.destination, file) if file != "" else path.join(self.destination,
-                                                                                                  path.basename(
-                                                                                                      self.source[
-                                                                                                          file_info[
-                                                                                                              'source']]))
+                #source_path = path.join(self.source[0], file) if file != "" else self.source[file_info['source']]
+                #destination_path = path.join(self.destination, file) if file != "" else path.join(self.destination,
+                #                                                                                  path.basename(
+                #                                                                                      self.source[
+                #                                                                                          file_info[
+                #                                                                                              'source']]))
 
-                if path.isdir(source_path):
-                    continue  # Skip directories
-                if path.isdir(destination_path):
-                    continue  # Skip directories
+                if file_info["type"] == FileType.DIRECTORY.value:
+                    continue
 
-                optimal_file_division = 2
-                if self.args.whole_file:
-                    optimal_file_division = 1
+                if self.args.checksum:
+                    if file_info["checksum"] != self.destination_list[self.destination_path_list.index(file)][
+                        "checksum"]:
+                        modified_files.append(file)
+                        bytes.append([(-1, -1, 0)])
+                        continue
+                else:
+                    if file_info["size"] != self.destination_list[self.destination_path_list.index(file)]["size"]:
+                        self.logger.info(f"File {file} has different size. (Source: {file_info['size']}, Destination: {self.destination_list[self.destination_path_list.index(file)]['size']})")
+                        modified_files.append(file)
+                        bytes.append([(-1, -1, 0)])
+                        continue
+                    elif not self.args.ignore_times and file_info["mtime"] != self.destination_list[self.destination_path_list.index(file)]["mtime"]:
+                        self.logger.info(f"File {file} has different modification time. (Source: {file_info['mtime']}, Destination: {self.destination_list[self.destination_path_list.index(file)]['mtime']})")
+                        modified_files.append(file)
+                        bytes.append([(-1, -1, 0)])
+                        continue
 
-                source_checksum = Checksum(source_path, divide=optimal_file_division)
-                modified_file_bytes = source_checksum.compare_with_file(destination_path)
+                #optimal_file_division = 2
+                #if self.args.whole_file:
+                #    optimal_file_division = 1
 
-                if len(modified_file_bytes) > 0:
-                    modified_files.append(file)
-                    # Calculate bytes to send
-                    bytes += [modified_file_bytes]
+                #source_checksum = Checksum(source_path, divide=optimal_file_division)
+                #modified_file_bytes = source_checksum.compare_with_file(destination_path)
+
+                #if len(modified_file_bytes) > 0:
+                #    modified_files.append(file)
+                #    # Calculate bytes to send
+                #    bytes += [modified_file_bytes]
+
+        print(f"Modified files: {modified_files} (bytes: {bytes})")
 
         return modified_files, bytes
 
