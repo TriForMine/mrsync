@@ -12,8 +12,8 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-import zlib
 from typing import List, Optional, Tuple
+from adler32 import Adler32
 
 
 class Checksum:
@@ -58,7 +58,7 @@ class Checksum:
             self.partLength = size // self.parts + 1
             f.seek(0)
             for i in range(self.parts):
-                checksums.append(zlib.adler32(f.read(self.partLength)))
+                checksums.append(Adler32(f.read(self.partLength)).checksum)
 
         return checksums
 
@@ -88,17 +88,29 @@ class Checksum:
             window = 0
 
             for i in range(self.parts):
+                f1.seek(i * self.partLength + window)
+
+                read_data = f1.read(self.partLength)
+                current_hash = Adler32(read_data)
 
                 while window < self.partLength:
-                    f1.seek(i * self.partLength + window)
-
-                    if zlib.adler32(f1.read(self.partLength)) == other.checksums[i]:
+                    if current_hash.checksum == other.checksums[i]:
                         if window > 0:
                             # Send the part between the start and the offset
                             parts.append((i * self.partLength, i * self.partLength + window, 0))
                             # Send an offset representing the part that is the same
                             parts.append((i * self.partLength, (i + 1) * self.partLength - window, window))
                         break
+
+                    if len(read_data) < window:
+                        parts.append((i * self.partLength, (i + 1) * self.partLength, 0))
+                        break
+
+                    first_byte = bytes([read_data[window]])
+                    next_byte = f1.read(1)
+
+                    current_hash.move_window(first_byte, next_byte)
+
                     window += 1
 
                 # All windows have been checked and no match was found.

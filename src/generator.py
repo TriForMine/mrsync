@@ -109,12 +109,15 @@ class Generator:
 
         return modified_files, bytes
 
-    def ask_file(self, file, parts: List[Tuple[int, int]] = None):
+    def ask_file(self, file, parts: List[Tuple[int, int, int]] = None):
         for part in parts:
-            self.logger.debug(f"Asking for file {file} with part {part}...")
+            if part[2] == 0:
+                self.logger.debug(f"Asking for file {file} from byte {part[0]} to byte {part[1]}...")
+            else:
+                self.logger.debug(f"Asking for modifying file {file} from byte {part[0]} to byte {part[1]} with an offset of {part[2]}...")
             send(self.write_server, MESSAGE_TAG.ASK_FILE_DATA, (file, part), timeout=self.args.timeout)
 
-    def ask_files(self, files: List[str], files_parts: List[List[Tuple[int, int]]]):
+    def ask_files(self, files: List[str], files_parts: List[List[Tuple[int, int, int]]]):
         for i in range(len(files)):
             self.ask_file(files[i], files_parts[i])
 
@@ -130,7 +133,7 @@ class Generator:
         if missing_files:
             self.logger.debug("Missing files:")
             # Ask for missing files, -1 means ask for the whole file
-            self.ask_files(missing_files, [[(-1, -1)] for _ in range(len(missing_files))])
+            self.ask_files(missing_files, [[(-1, -1, 0)] for _ in range(len(missing_files))])
         else:
             self.logger.debug("No missing files.")
 
