@@ -44,6 +44,8 @@ class MESSAGE_TAG(Enum):
     GENERATOR_FINISHED = 8
     # Delete files
     DELETE_FILES = 9
+    # Server finished
+    SERVER_FINISHED = 10
 
     def __str__(self):
         return self.name.replace('_', ' ').title()
@@ -240,7 +242,8 @@ def recv(fd: int, timeout: Optional[int] = None) -> (int, object):
                 return MESSAGE_TAG.END, None
 
             if len(data) != message_size:
-                raise Exception(f'Error while receiving message from {fd} it was {len(data)} bytes instead of {message_size} bytes')
+                raise Exception(
+                    f'Error while receiving message from {fd} it was {len(data)} bytes instead of {message_size} bytes')
 
             total_data += data
             current_packet += 1

@@ -13,11 +13,11 @@
 #    limitations under the License.
 import os
 from os import path
-from typing import List, Tuple, Any
+from typing import List, Tuple
 
 from checksum import Checksum
-from message import send, MESSAGE_TAG
 from filelist import FileType
+from message import send, MESSAGE_TAG
 
 
 class Generator:
@@ -96,15 +96,18 @@ class Generator:
                 if self.args.checksum:
                     if file_info["checksum"] != destination_info[
                         "checksum"]:
-                        self.logger.debug(f"File {file} has different checksum. (Source: {file_info['checksum']}, Destination: {destination_info['checksum']})")
+                        self.logger.debug(
+                            f"File {file} has different checksum. (Source: {file_info['checksum']}, Destination: {destination_info['checksum']})")
                         is_modified = True
                 else:
                     if file_info["size"] != destination_info["size"]:
                         is_modified = True
-                        self.logger.debug(f"File {file} has different size. (Source: {file_info['size']}, Destination: {destination_info['size']})")
+                        self.logger.debug(
+                            f"File {file} has different size. (Source: {file_info['size']}, Destination: {destination_info['size']})")
                     elif not self.args.ignore_times and file_info["mtime"] != destination_info["mtime"]:
                         is_modified = True
-                        self.logger.debug(f"File {file} has different modification time. (Source: {file_info['mtime']}, Destination: {destination_info['mtime']})")
+                        self.logger.debug(
+                            f"File {file} has different modification time. (Source: {file_info['mtime']}, Destination: {destination_info['mtime']})")
 
                 if is_modified:
                     modified_files.append(file)
@@ -134,7 +137,7 @@ class Generator:
         if missing_files:
             self.logger.debug("Missing files:")
             # Ask for missing files, -1 means ask for the whole file
-            self.ask_files(missing_files, [[] for _ in missing_files], [-1 for _ in missing_files], [-1 for _ in missing_files])
+            self.ask_files(missing_files, [[] for _ in missing_files], [-1 for _ in missing_files])
         else:
             self.logger.debug("No missing files.")
 

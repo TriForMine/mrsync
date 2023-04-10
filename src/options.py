@@ -49,6 +49,8 @@ def parse_args():
     parser.add_argument("--list-only", action="store_true", help="list the files instead of copying them")
     parser.add_argument("--whole-file", action="store_true", help="copy files whole (w/o dividing them into blocks)")
     parser.add_argument("--checksum", action="store_true", help="skip based on checksum, not mod-time & size")
+    parser.add_argument('--server', action='store_true', help="run as the server on remote machine")
+    parser.add_argument('--daemon', action='store_true', help="run as a daemon")
 
     return parser.parse_args()
 

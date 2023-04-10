@@ -29,8 +29,8 @@ class Server:
         self.logger = logger
         self.source = source
         self.destination = destination
-        self.rd = rd
         self.wr = wr
+        self.rd = rd
         self.args = args
 
     def run(self):
@@ -66,7 +66,8 @@ class Server:
             with open(target_path, "wb") as f:
                 f.write(data)
 
-    def handle_file_modification(self, file_name: str, start_byte: int, end_byte: int, whole_file: bool, modification_time: float, data: bytes):
+    def handle_file_modification(self, file_name: str, start_byte: int, end_byte: int, whole_file: bool,
+                                 modification_time: float, data: bytes):
         if self.args.ignore_existing:
             return
 
@@ -115,7 +116,10 @@ class Server:
                     if self.args.force:
                         shutil.rmtree(path.join(self.destination, file))
             else:
-                os.remove(path.join(self.destination, file))
+                try:
+                    os.remove(path.join(self.destination, file))
+                except OSError:
+                    self.logger.warn(f"Cannot delete {file}")
 
     def handle_file_offset(self, file_name: str, start_byte: int, end_byte: int, offset: int):
         """
@@ -172,15 +176,16 @@ class Server:
             file_list_flags |= FileListInfo.FILE_SIZE.value
             file_list_flags |= FileListInfo.FILE_TIMES.value
 
-
-        destination_files = generate_file_list([self.destination], self.logger, recursive=self.args.recursive,
-                                               directory=True, options=file_list_flags)
-
         send(self.wr, MESSAGE_TAG.ASK_FILE_LIST, file_list_flags, timeout=self.args.timeout, logger=self.logger)
         while True:
             tag, v = recv(self.rd, timeout=self.args.timeout)
 
-            if tag == MESSAGE_TAG.FILE_LIST:
+            if tag == MESSAGE_TAG.ASK_FILE_LIST:
+                destination_files = generate_file_list([self.destination], self.logger, recursive=self.args.recursive,
+                                                       directory=True, options=file_list_flags)
+                send(self.wr, MESSAGE_TAG.FILE_LIST, destination_files, timeout=self.args.timeout,
+                     logger=self.logger)
+            elif tag == MESSAGE_TAG.FILE_LIST:
                 self.logger.info(f'File list received {v}')
 
                 source_files = v
@@ -189,6 +194,9 @@ class Server:
 
                 if pid == 0:
                     os.close(self.rd)
+                    destination_files = generate_file_list([self.destination], self.logger,
+                                                           recursive=self.args.recursive,
+                                                           directory=True, options=file_list_flags)
                     generator = Generator(self.wr, self.source, self.destination, source_files, destination_files,
                                           self.logger, self.args)
                     generator.run()
@@ -206,4 +214,5 @@ class Server:
                 self.handle_file_deletion(v)
             elif tag == MESSAGE_TAG.END:
                 self.logger.info('Server: End of transmission')
+                send(self.wr, MESSAGE_TAG.SERVER_FINISHED, None, timeout=self.args.timeout, logger=self.logger)
                 break

@@ -16,6 +16,7 @@ import os
 
 import options
 from client import Client
+from demon import run_daemon
 from filelist import print_file_list
 from logger import Logger
 from server import Server
@@ -33,6 +34,15 @@ if __name__ == '__main__':
 
     rd_server, wr_client = os.pipe()
     rd_client, wr_server = os.pipe()
+
+    if args.server:
+        server = Server(args.source[0], args.destination, rd_server, wr_server, logger, args)
+        server.run()
+        exit(0)
+
+    if args.daemon:
+        run_daemon()
+        exit(0)
 
     pid = os.fork()
 
