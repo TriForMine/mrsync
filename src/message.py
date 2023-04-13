@@ -63,7 +63,7 @@ def send(fd: int, tag: MESSAGE_TAG, v: object, timeout: Optional[int] = None, lo
 
     try:
         if tag == MESSAGE_TAG.FILE_DATA:
-            (filename, start, end, whole_file, modification_time, data) = v
+            (filename, source, start, end, whole_file, modification_time, data) = v
         else:
             data = cbor2.dumps(v)
 
@@ -88,6 +88,10 @@ def send(fd: int, tag: MESSAGE_TAG, v: object, timeout: Optional[int] = None, lo
 
             # Send filename
             os.write(fd, filename_data)
+
+            # Send source
+            size = source.to_bytes(4, byteorder='big')
+            os.write(fd, size)
 
             # Send start byte
             size = start.to_bytes(4, byteorder='big')
@@ -152,6 +156,7 @@ def send(fd: int, tag: MESSAGE_TAG, v: object, timeout: Optional[int] = None, lo
 
 def recv(fd: int, timeout: Optional[int] = None) -> (int, object):
     filename = ''
+    source = 0
     start_byte = 0
     end_byte = 0
     whole_file = False
@@ -195,6 +200,12 @@ def recv(fd: int, timeout: Optional[int] = None) -> (int, object):
             if not size:
                 return MESSAGE_TAG.END, None
             filename = filename.decode('utf-8')
+
+            # Receive source
+            size = os.read(fd, 4)
+            if not size:
+                return MESSAGE_TAG.END, None
+            source = int.from_bytes(size, byteorder='big')
 
             # Receive start byte
             size = os.read(fd, 4)
@@ -249,7 +260,7 @@ def recv(fd: int, timeout: Optional[int] = None) -> (int, object):
             current_packet += 1
 
         if tag == MESSAGE_TAG.FILE_DATA:
-            return tag, (filename, start_byte, end_byte, whole_file, modification_time, total_data)
+            return tag, (filename, source, start_byte, end_byte, whole_file, modification_time, total_data)
 
         return tag, cbor2.loads(total_data)
     except TimeoutError:

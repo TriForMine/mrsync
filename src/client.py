@@ -44,13 +44,13 @@ class Client:
                                                directory=self.args.dirs, options=v)
                 send(self.wr, MESSAGE_TAG.FILE_LIST, file_list, timeout=self.args.timeout, logger=self.logger)
             elif tag == MESSAGE_TAG.ASK_FILE_DATA:
-                (filename, checksums, total_length) = v
+                (filename, source, checksums, total_length) = v
 
-                self.logger.info(f'File data requested for {filename}')
-                target_path = path.join(self.sources[0], filename) if filename != '' else self.sources[0]
+                target_path = path.join(self.sources[source], filename) if filename != '' else self.sources[source]
+                self.logger.info(f'File data requested for {target_path}')
                 if path.isdir(target_path):
                     m_time = os.path.getmtime(target_path)
-                    send(self.wr, MESSAGE_TAG.FILE_DATA, (filename + '/', 0, 0, True, m_time, b''),
+                    send(self.wr, MESSAGE_TAG.FILE_DATA, (filename + '/', source, 0, 0, True, m_time, b''),
                          timeout=self.args.timeout,
                          logger=self.logger)
                 else:
@@ -58,7 +58,7 @@ class Client:
                         m_time = os.path.getmtime(target_path)
 
                         if not checksums:
-                            send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, 0, 0, True, m_time, f.read()),
+                            send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, source, 0, 0, True, m_time, f.read()),
                                  timeout=self.args.timeout,
                                  logger=self.logger)
                             continue
@@ -70,7 +70,7 @@ class Client:
 
                         if len(parts) == 0:
                             self.logger.info(f'File {filename} is already up to date')
-                            send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, 0, 0, False, m_time, b''),
+                            send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, source, 0, 0, False, m_time, b''),
                                  timeout=self.args.timeout,
                                  logger=self.logger)
                             continue
@@ -80,14 +80,15 @@ class Client:
                                     send(self.wr, MESSAGE_TAG.FILE_DATA_OFFSET, (filename, part[0], part[1], part[2]),
                                          timeout=self.args.timeout, logger=self.logger)
                                 elif part[0] == -1 or part[1] == -1:
-                                    send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, 0, 0, True, m_time, f.read()),
+                                    send(self.wr, MESSAGE_TAG.FILE_DATA,
+                                         (filename, source, 0, 0, True, m_time, f.read()),
                                          timeout=self.args.timeout,
                                          logger=self.logger)
                                 else:
                                     f.seek(part[0])
                                     data = f.read(part[1] - part[0] + 1)
                                     send(self.wr, MESSAGE_TAG.FILE_DATA,
-                                         (filename, part[0], part[1], False, m_time, data),
+                                         (filename, source, part[0], part[1], False, m_time, data),
                                          timeout=self.args.timeout, logger=self.logger)
             elif tag == MESSAGE_TAG.END:
                 self.logger.debug('End of transmission')

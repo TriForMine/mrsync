@@ -34,23 +34,23 @@ class Generator:
         self.logger = logger
         self.args = args
 
-    def get_missing_files(self) -> List[str]:
+    def get_missing_files(self) -> Tuple[List[str], List[int]]:
         """
         Returns a list of files that are in the source list but not in the destination list.
         :return: List of missing files
         """
 
         files = []
+        sources = []
 
         for file_info in self.source_list:
             file = file_info["path"]
-            if (file != "" or file == "" and path.basename(
-                    self.source[
-                        file_info[
-                            'source']]) not in self.destination_path_list) and file not in self.destination_path_list:
-                files.append(file)
+            file = file if file != "" else path.basename(self.source[file_info["source"]])
+            if file not in self.destination_path_list:
+                files.append(file_info["path"])
+                sources.append(file_info["source"])
 
-        return files
+        return files, sources
 
     def get_extra_files(self) -> List[str]:
         """
@@ -62,29 +62,35 @@ class Generator:
 
         for file_info in self.destination_list:
             file = file_info["path"]
-            if (file != "" or file == "" and path.basename(
-                    self.destination) not in self.source_path_list) and file not in self.source_path_list:
-                files.append(file)
+            file = file if file != "" else path.basename(self.destination)
+
+            found = False
+            for source in self.source_list:
+                source_file = source["path"]
+                source_file = source_file if source_file != "" else path.basename(self.source[source["source"]])
+                if source_file == file:
+                    found = True
+                    break
+            if not found:
+                files.append(file_info["path"])
 
         return files
 
-    def get_modified_files(self) -> Tuple[List[str], List[List[int]], List[int]]:
+    def get_modified_files(self) -> Tuple[List[str], List[int], List[List[int]], List[int]]:
         """
         Returns a list of files that are in both the source and destination lists, but have different checksums.
         :return: List of modified files
         """
 
         modified_files = []
+        sources = []
         checksums = []
         total_lengths = []
 
         for file_info in self.source_list:
-            if file_info["path"] not in self.destination_path_list:
-                continue
             file = file_info["path"]
-            if (file != "" or file == "" and path.basename(
-                    self.source[
-                        file_info['source']]) in self.destination_path_list) or file in self.destination_path_list:
+            file = file if file != "" else path.basename(self.source[file_info["source"]])
+            if file in self.destination_path_list:
 
                 if file_info["type"] == FileType.DIRECTORY.value:
                     continue
@@ -110,34 +116,36 @@ class Generator:
                             f"File {file} has different modification time. (Source: {file_info['mtime']}, Destination: {destination_info['mtime']})")
 
                 if is_modified:
-                    modified_files.append(file)
+                    modified_files.append(file_info["path"])
+                    sources.append(file_info["source"])
                     destination_path = path.join(self.destination, destination_info["path"])
                     checksum = Checksum(destination_path)
                     checksums.append(checksum.checksums)
                     total_lengths.append(checksum.totalLength)
 
-        return modified_files, checksums, total_lengths
+        return modified_files, sources, checksums, total_lengths
 
-    def ask_file(self, file, checksums: List[int], total_length: int):
-        send(self.write_server, MESSAGE_TAG.ASK_FILE_DATA, (file, checksums, total_length), timeout=self.args.timeout)
+    def ask_file(self, file: str, source: int, checksums: List[int], total_length: int):
+        send(self.write_server, MESSAGE_TAG.ASK_FILE_DATA, (file, source, checksums, total_length),
+             timeout=self.args.timeout)
 
-    def ask_files(self, files: List[str], checksums: List[List[int]], total_lengths: List[int]):
+    def ask_files(self, files: List[str], sources: List[int], checksums: List[List[int]], total_lengths: List[int]):
         for i in range(len(files)):
-            self.ask_file(files[i], checksums[i], total_lengths[i])
+            self.ask_file(files[i], sources[i], checksums[i], total_lengths[i])
 
     def run(self):
         """
         Runs the generator.
         """
 
-        missing_files = self.get_missing_files()
+        missing_files, files_sources = self.get_missing_files()
         extra_files = self.get_extra_files()
-        (modified_files, checksums, total_lengths) = self.get_modified_files()
+        (modified_files, modified_sources, checksums, total_lengths) = self.get_modified_files()
 
         if missing_files:
             self.logger.debug("Missing files:")
             # Ask for missing files, -1 means ask for the whole file
-            self.ask_files(missing_files, [[] for _ in missing_files], [-1 for _ in missing_files])
+            self.ask_files(missing_files, files_sources, [[] for _ in missing_files], [-1 for _ in missing_files])
         else:
             self.logger.debug("No missing files.")
 
@@ -154,7 +162,7 @@ class Generator:
 
         if modified_files:
             self.logger.debug("Modified files:")
-            self.ask_files(modified_files, checksums, total_lengths)
+            self.ask_files(modified_files, modified_sources, checksums, total_lengths)
         else:
             self.logger.debug("No modified files.")
 

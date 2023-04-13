@@ -41,6 +41,37 @@ class FileListInfo(Enum):
         return self.name.replace('_', ' ').title()
 
 
+def generate_info(path, options, source, is_self=False, rel=None):
+    file_type = FileType.FILE if os.path.isfile(path) else FileType.DIRECTORY
+
+    if is_self:
+        info_path = ''
+    elif rel:
+        info_path = os.path.relpath(path, rel)
+    else:
+        info_path = os.path.basename(path)
+
+    info = {'type': file_type.value, 'path': info_path, 'source': source}
+
+    if options & FileListInfo.HARD_LINKS.value:
+        info['hard_links'] = os.stat(path).st_nlink
+    if options & FileListInfo.PERMISSIONS.value:
+        info['permissions'] = oct(os.stat(path).st_mode)[-3:]
+    if options & FileListInfo.FILE_SIZE.value:
+        info['size'] = os.stat(path).st_size
+    if options & FileListInfo.FILE_TIMES.value:
+        info['atime'] = int(os.stat(path).st_atime)
+        info['mtime'] = int(os.stat(path).st_mtime)
+        info['ctime'] = int(os.stat(path).st_ctime)
+
+    if file_type.value == FileType.FILE.value:
+        if options & FileListInfo.CHECKSUM.value:
+            with open(path, 'rb') as f:
+                info['checksum'] = Adler32(f.read()).checksum
+
+    return info
+
+
 def generate_file_list(sources: List[str], logger,
                        options: int = FileListInfo.NONE.value,
                        recursive: Optional[bool] = False,
@@ -49,62 +80,31 @@ def generate_file_list(sources: List[str], logger,
 
     logger.debug("Generating file list...")
     file_list = []
+
+    def recursive_dir(path):
+        for root, dirs, files in os.walk(path, followlinks=True):
+            for file in files:
+                file_path = os.path.join(root, file)
+                file_list.append(generate_info(file_path, options, i, rel=path))
+            for dir in dirs:
+                dir_path = os.path.join(root, dir)
+                file_list.append(generate_info(dir_path, options, i, rel=path))
+
+            if not recursive:
+                break
+
     for i in range(len(sources)):
         source = sources[i]
         if directory:
-            for root, dirs, files in os.walk(source, followlinks=True):
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    file_info = {'type': FileType.FILE.value, 'source': i, 'path': os.path.relpath(file_path, source)}
-                    if options & FileListInfo.HARD_LINKS.value:
-                        file_info['hard_links'] = os.stat(file_path).st_nlink
-                    if options & FileListInfo.PERMISSIONS.value:
-                        file_info['permissions'] = oct(os.stat(file_path).st_mode)[-3:]
-                    if options & FileListInfo.FILE_SIZE.value:
-                        file_info['size'] = os.stat(file_path).st_size
-                    if options & FileListInfo.FILE_TIMES.value:
-                        # Convert to UNIX timestamp
-                        file_info['atime'] = int(os.stat(file_path).st_atime)
-                        file_info['mtime'] = int(os.stat(file_path).st_mtime)
-                        file_info['ctime'] = int(os.stat(file_path).st_ctime)
-                    if options & FileListInfo.CHECKSUM.value:
-                        with open(file_path, 'rb') as f:
-                            file_info['checksum'] = Adler32(f.read()).checksum
-                    file_list.append(file_info)
-                for dir in dirs:
-                    dir_path = os.path.join(root, dir)
-                    dir_info = {'type': FileType.DIRECTORY.value, 'source': i,
-                                'path': os.path.relpath(dir_path, source)}
-                    if options & FileListInfo.HARD_LINKS.value:
-                        dir_info['hard_links'] = os.stat(dir_path).st_nlink
-                    if options & FileListInfo.PERMISSIONS.value:
-                        dir_info['permissions'] = oct(os.stat(dir_path).st_mode)[-3:]
-                    if options & FileListInfo.FILE_SIZE.value:
-                        dir_info['size'] = os.stat(dir_path).st_size
-                    if options & FileListInfo.FILE_TIMES.value:
-                        dir_info['atime'] = int(os.stat(dir_path).st_atime)
-                        dir_info['mtime'] = int(os.stat(dir_path).st_mtime)
-                        dir_info['ctime'] = int(os.stat(dir_path).st_ctime)
-                    file_list.append(dir_info)
-
-                if not recursive:
-                    break
-        else:
-            file_info = {'type': FileType.FILE.value, 'source': i, 'path': os.path.basename(source)}
-            if options & FileListInfo.HARD_LINKS.value:
-                file_info['hard_links'] = os.stat(source).st_nlink
-            if options & FileListInfo.PERMISSIONS.value:
-                file_info['permissions'] = oct(os.stat(source).st_mode)[-3:]
-            if options & FileListInfo.FILE_SIZE.value:
-                file_info['size'] = os.stat(source).st_size
-            if options & FileListInfo.FILE_TIMES.value:
-                file_info['atime'] = int(os.stat(source).st_atime)
-                file_info['mtime'] = int(os.stat(source).st_mtime)
-                file_info['ctime'] = int(os.stat(source).st_ctime)
-            if options & FileListInfo.CHECKSUM.value:
-                with open(source, 'rb') as f:
-                    file_info['checksum'] = Adler32(f.read()).checksum
-            file_list.append(file_info)
+            if not source.endswith(os.sep):
+                if os.path.isdir(source):
+                    file_list.append(generate_info(source, options, i, True))
+                elif os.path.isfile(source):
+                    file_list.append(generate_info(source, options, i, True))
+            else:
+                recursive_dir(source)
+        elif os.path.isfile(source):
+            file_list.append(generate_info(source, options, i, True))
 
     logger.debug("File list generated.")
     return file_list
@@ -157,7 +157,9 @@ def print_file_list(sources: List[str], logger, recursive: Optional[bool] = Fals
         # Make so evertyhing is aligned
         size = size.rjust(max_size_length)
 
+        full_path = file['path'] if file['path'] != "" else os.path.basename(sources[file['source']])
+
         logger.log(
-            f"{permission_string} {size} {time} {file['path']}")
+            f"{permission_string} {size} {time} {full_path}")
 
     logger.log(f"Total files: {len(file_list)}")

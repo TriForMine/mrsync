@@ -16,7 +16,6 @@ import shutil
 import sys
 import time
 from argparse import Namespace
-from os import path
 
 from filelist import generate_file_list, FileListInfo
 from generator import Generator
@@ -28,6 +27,11 @@ class Server:
     def __init__(self, source: str, destination: str, rd: int, wr: int, logger: Logger, args: Namespace):
         self.logger = logger
         self.source = source
+
+        # Add trailing slash if destination is a directory
+        if not destination.endswith('/') and os.path.isdir(destination):
+            destination += '/'
+        
         self.destination = destination
         self.wr = wr
         self.rd = rd
@@ -42,10 +46,10 @@ class Server:
         self.logger.info(f"Time elapsed: {t2 - t1:.2f}s")
         sys.exit(0)
 
-    def handle_file_creation(self, file: str, data: bytes):
+    def handle_file_creation(self, path: str, data: bytes):
         """
         Handle file creation
-        :param file: The file name
+        :param path: The file path
         :param data:  The file data
         :return: None
         """
@@ -53,34 +57,30 @@ class Server:
         if self.args.existing:
             return
 
-        if file.endswith("/"):
-            self.logger.info(f"Creating directory {file}...")
-            os.makedirs(path.join(self.destination, file), exist_ok=True)
+        if path.endswith("/"):
+            self.logger.info(f"Creating directory {path}...")
+            os.makedirs(path, exist_ok=True)
         else:
-            if not path.exists(path.dirname(path.join(self.destination, file))):
-                os.makedirs(path.dirname(path.join(self.destination, file)), exist_ok=True)
+            if not os.path.exists(os.path.dirname(path)):
+                os.makedirs(os.path.dirname(path), exist_ok=True)
 
-            self.logger.info(f"Creating file {file}...")
-            target_path = path.join(self.destination, file) if file != '' else path.join(self.destination,
-                                                                                         path.basename(self.source[0]))
-            with open(target_path, "wb") as f:
+            self.logger.info(f"Creating file {path}...")
+            with open(path, "wb") as f:
                 f.write(data)
 
-    def handle_file_modification(self, file_name: str, start_byte: int, end_byte: int, whole_file: bool,
+    def handle_file_modification(self, path: str, start_byte: int, end_byte: int, whole_file: bool,
                                  modification_time: float, data: bytes):
         if self.args.ignore_existing:
             return
 
-        if not path.exists(path.dirname(path.join(self.destination, file_name))):
-            os.makedirs(path.dirname(path.join(self.destination, file_name)), exist_ok=True)
+        if not os.path.exists(os.path.dirname(path)):
+            os.makedirs(os.path.dirname(path), exist_ok=True)
 
-        self.logger.info(f"Modifying file {file_name} from byte {start_byte} to {start_byte + len(data)}...")
-        target_path = path.join(self.destination, file_name) if file_name != '' else path.join(self.destination,
-                                                                                               path.basename(
-                                                                                                   self.source[0]))
+        self.logger.info(f"Modifying file {path} from byte {start_byte} to {start_byte + len(data)}...")
+
         # verify if not a directory
-        if not path.isdir(target_path):
-            with open(target_path, "r+b") as f:
+        if not os.path.isdir(path):
+            with open(path, "r+b") as f:
                 f.seek(start_byte)
                 f.write(data)
 
@@ -91,10 +91,10 @@ class Server:
                 if whole_file:
                     f.truncate()
 
-            atime = os.path.getatime(target_path)
-            os.utime(target_path, (atime, modification_time))
+            atime = os.path.getatime(path)
+            os.utime(path, (atime, modification_time))
         else:
-            self.logger.warn(f"Cannot modify directory {file_name}")
+            self.logger.warn(f"Cannot modify directory {path}")
 
     def handle_file_deletion(self, files: list):
         """
@@ -108,16 +108,16 @@ class Server:
         for file in files:
             self.logger.info(f"Deleting {file}...")
             print(self.destination, file)
-            if path.isdir(path.join(self.destination, file)):
+            if os.path.isdir(os.path.join(self.destination, file)):
                 try:
-                    os.rmdir(path.join(self.destination, file))
+                    os.rmdir(os.path.join(self.destination, file))
                 except OSError:
                     # If the directory is not empty, we delete all files in it
                     if self.args.force:
-                        shutil.rmtree(path.join(self.destination, file))
+                        shutil.rmtree(os.path.join(self.destination, file))
             else:
                 try:
-                    os.remove(path.join(self.destination, file))
+                    os.remove(os.path.join(self.destination, file))
                 except OSError:
                     self.logger.warn(f"Cannot delete {file}")
 
@@ -133,15 +133,16 @@ class Server:
         if self.args.ignore_existing:
             return
 
-        if not path.exists(path.dirname(path.join(self.destination, file_name))):
-            os.makedirs(path.dirname(path.join(self.destination, file_name)), exist_ok=True)
+        if not os.path.exists(os.path.dirname(os.path.join(self.destination, file_name))):
+            os.makedirs(os.path.dirname(os.path.join(self.destination, file_name)), exist_ok=True)
 
         self.logger.info(f"Moving file {file_name} from byte {start_byte} to {end_byte}...")
-        target_path = path.join(self.destination, file_name) if file_name != '' else path.join(self.destination,
-                                                                                               path.basename(
-                                                                                                   self.source[0]))
+        target_path = os.path.join(self.destination, file_name) if file_name != '' else os.path.join(self.destination,
+                                                                                                     os.path.basename(
+                                                                                                         self.source[
+                                                                                                             0]))
         # verify if not a directory
-        if not path.isdir(target_path):
+        if not os.path.isdir(target_path):
             with open(target_path, "r+b") as f:
                 f.seek(start_byte)
                 data = f.read(end_byte - start_byte + 1)
@@ -202,11 +203,22 @@ class Server:
                     generator.run()
                     sys.exit(0)
             elif tag == MESSAGE_TAG.FILE_DATA:
-                (file_name, start, end, whole_file, modification_time, data) = v
-                if not os.path.exists(path.join(self.destination, file_name)):
-                    self.handle_file_creation(file_name, data)
+                (file_name, source, start, end, whole_file, modification_time, data) = v
+
+                target_path = os.path.join(self.destination,
+                                           file_name) if file_name != '' and file_name != '/' else os.path.join(
+                    self.destination,
+                    os.path.basename(
+                        self.source[
+                            source]))
+
+                if file_name == '/':
+                    target_path += '/'
+
+                if not os.path.exists(target_path):
+                    self.handle_file_creation(target_path, data)
                 else:
-                    self.handle_file_modification(file_name, start, end, whole_file, modification_time, data)
+                    self.handle_file_modification(target_path, start, end, whole_file, modification_time, data)
             elif tag == MESSAGE_TAG.FILE_DATA_OFFSET:
                 (file_name, start, end, offset) = v
                 self.handle_file_offset(file_name, start, end, offset)
