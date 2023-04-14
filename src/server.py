@@ -25,13 +25,22 @@ from message import recv, send, MESSAGE_TAG
 
 class Server:
     def __init__(self, source: str, destination: str, rd: int, wr: int, logger: Logger, args: Namespace):
+        """
+        Server constructor
+        :param source: The source directory
+        :param destination: The destination directory
+        :param rd: The read file descriptor
+        :param wr: The write file descriptor
+        :param logger: The logger
+        :param args: The arguments
+        """
         self.logger = logger
         self.source = source
 
         # Add trailing slash if destination is a directory
         if not destination.endswith('/') and os.path.isdir(destination):
             destination += '/'
-        
+
         self.destination = destination
         self.wr = wr
         self.rd = rd
@@ -57,10 +66,12 @@ class Server:
         if self.args.existing:
             return
 
+        # Create directory if path ends with a slash
         if path.endswith("/"):
             self.logger.info(f"Creating directory {path}...")
             os.makedirs(path, exist_ok=True)
         else:
+            # Create parent directory if it doesn't exist
             if not os.path.exists(os.path.dirname(path)):
                 os.makedirs(os.path.dirname(path), exist_ok=True)
 
@@ -70,15 +81,26 @@ class Server:
 
     def handle_file_modification(self, path: str, start_byte: int, end_byte: int, whole_file: bool,
                                  modification_time: float, data: bytes):
+        """
+        Handle file modification
+        :param path: The file path
+        :param start_byte: The start byte
+        :param end_byte: The end byte
+        :param whole_file: If the file is modified entirely
+        :param modification_time: The modification time
+        :param data: The data
+        :return:
+        """
         if self.args.ignore_existing:
             return
 
+        # Create parent directory if it doesn't exist
         if not os.path.exists(os.path.dirname(path)):
             os.makedirs(os.path.dirname(path), exist_ok=True)
 
         self.logger.info(f"Modifying file {path} from byte {start_byte} to {start_byte + len(data)}...")
 
-        # verify if not a directory
+        # If path is a file, we can modify it
         if not os.path.isdir(path):
             with open(path, "r+b") as f:
                 f.seek(start_byte)
@@ -88,9 +110,11 @@ class Server:
                 if len(data) < end_byte - start_byte:
                     f.truncate()
 
+                # If the whole file is modified, we truncate it to the new size
                 if whole_file:
                     f.truncate()
 
+            # Set the modification time
             atime = os.path.getatime(path)
             os.utime(path, (atime, modification_time))
         else:
@@ -98,8 +122,8 @@ class Server:
 
     def handle_file_deletion(self, files: list):
         """
-
-        :param files:
+        Handle file deletion
+        :param files: The files to delete
         :return:
         """
         if files is None:
@@ -108,15 +132,21 @@ class Server:
         for file in files:
             self.logger.info(f"Deleting {file}...")
             print(self.destination, file)
+
+            # If the file is a directory, we delete it
             if os.path.isdir(os.path.join(self.destination, file)):
                 try:
+                    # If the directory is empty, we delete it
                     os.rmdir(os.path.join(self.destination, file))
                 except OSError:
                     # If the directory is not empty, we delete all files in it
+
+                    # If the directory is not empty and --force is set, we delete it recursively
                     if self.args.force:
                         shutil.rmtree(os.path.join(self.destination, file))
             else:
                 try:
+                    # If the file is not a directory, we delete it
                     os.remove(os.path.join(self.destination, file))
                 except OSError:
                     self.logger.warn(f"Cannot delete {file}")
@@ -124,15 +154,16 @@ class Server:
     def handle_file_offset(self, file_name: str, start_byte: int, end_byte: int, offset: int):
         """
         Move all the content from start_byte to end_byte by offset.
-        :param file_name:
-        :param start_byte:
-        :param end_byte:
-        :param offset:
+        :param file_name: The file name
+        :param start_byte: The start byte
+        :param end_byte: The end byte
+        :param offset: The offset
         :return:
         """
         if self.args.ignore_existing:
             return
 
+        # Create parent directory if it doesn't exist
         if not os.path.exists(os.path.dirname(os.path.join(self.destination, file_name))):
             os.makedirs(os.path.dirname(os.path.join(self.destination, file_name)), exist_ok=True)
 
@@ -149,7 +180,8 @@ class Server:
                 f.seek(start_byte + offset)
                 f.write(data)
 
-                # Replace the offset with empty bytes
+                # Replace the offset with empty bytes, this is needed to avoid having the same data twice
+                # The date will be overwritten by the next modification
                 f.seek(start_byte)
                 f.write(b'\x00' * offset)
 
@@ -160,6 +192,10 @@ class Server:
             self.logger.warn(f"Cannot modify directory {file_name}")
 
     def loop(self):
+        """
+        The main loop of the server
+        :return:
+        """
         file_list_flags = 0
 
         if self.args.hard_links:
@@ -193,6 +229,7 @@ class Server:
 
                 pid = os.fork()
 
+                # Once the file list is received, we start the generator
                 if pid == 0:
                     os.close(self.rd)
                     destination_files = generate_file_list([self.destination], self.logger,
@@ -215,6 +252,7 @@ class Server:
                 if file_name == '/':
                     target_path += '/'
 
+                # Check whether the file needs to be created or modified
                 if not os.path.exists(target_path):
                     self.handle_file_creation(target_path, data)
                 else:

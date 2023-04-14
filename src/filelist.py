@@ -42,6 +42,15 @@ class FileListInfo(Enum):
 
 
 def generate_info(path, options, source, is_self=False, rel=None):
+    """
+    Generate info for a file or directory.
+    :param path: The path to the file or directory.
+    :param options: Options to include in info.
+    :param source: The source of the file or directory.
+    :param is_self: Whether the path is the source.
+    :param rel: The relative path to the source.
+    :return:
+    """
     file_type = FileType.FILE if os.path.isfile(path) else FileType.DIRECTORY
 
     if is_self:
@@ -76,7 +85,15 @@ def generate_file_list(sources: List[str], logger,
                        options: int = FileListInfo.NONE.value,
                        recursive: Optional[bool] = False,
                        directory: Optional[bool] = False) -> List[dict]:
-    # Returns a list of dictionaries containing file info.
+    """
+    Generate a list of files and directories from a list of paths.
+    :param sources: list of paths to generate file list from
+    :param logger: logger to log to
+    :param options: options to include in file list
+    :param recursive: whether to recursively generate file list
+    :param directory: whether to treat sources as directories
+    :return:
+    """
 
     logger.debug("Generating file list...")
     file_list = []
@@ -111,6 +128,11 @@ def generate_file_list(sources: List[str], logger,
 
 
 def humanize_size(size: int):
+    """
+    Humanize a size in bytes.
+    :param size: Size in bytes.
+    :return: Humanized size.
+    """
     if size < 1024:
         size = f"{size}B"
     elif size < 1024 * 1024:
@@ -125,6 +147,14 @@ def humanize_size(size: int):
 
 def print_file_list(sources: List[str], logger, recursive: Optional[bool] = False,
                     directory: Optional[bool] = False):
+    """
+    Print a file list.
+    :param sources: The sources to generate the file list from.
+    :param logger: The logger to log to.
+    :param recursive: Whether to recursively generate the file list.
+    :param directory: Whether to treat sources as directories.
+    :return:
+    """
     file_list = generate_file_list(sources, logger, recursive=recursive, directory=directory,
                                    options=FileListInfo.PERMISSIONS.value | FileListInfo.FILE_SIZE.value | FileListInfo.FILE_TIMES.value)
 

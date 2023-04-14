@@ -90,8 +90,11 @@ class Generator:
         for file_info in self.source_list:
             file = file_info["path"]
             file = file if file != "" else path.basename(self.source[file_info["source"]])
+
+            # Check if file is in destination list
             if file in self.destination_path_list:
 
+                # Skip directories
                 if file_info["type"] == FileType.DIRECTORY.value:
                     continue
 
@@ -99,6 +102,7 @@ class Generator:
                 destination_info = self.destination_list[destination_index]
                 is_modified = False
 
+                # Check if file is modified
                 if self.args.checksum:
                     if file_info["checksum"] != destination_info[
                         "checksum"]:
@@ -119,17 +123,52 @@ class Generator:
                     modified_files.append(file_info["path"])
                     sources.append(file_info["source"])
                     destination_path = path.join(self.destination, destination_info["path"])
-                    checksum = Checksum(destination_path)
+
+                    # Amount of blocks calculated from the total file size
+                    # Block size is calculated like the real rsync
+                    block_size = 700
+                    if file_info["size"] > 490000:
+                        # Square root of the file size (rounded up to a multiple of 8)
+                        block_size = int(2 ** ((file_info["size"] - 1).bit_length() + 1) ** 0.5)
+
+                    amount_of_blocks = int(file_info["size"] / block_size)
+
+                    if file_info["size"] % block_size != 0:
+                        amount_of_blocks += 1
+
+                    if amount_of_blocks == 0:
+                        amount_of_blocks = 1
+
+                    # Calculate checksums
+                    checksum = Checksum(destination_path, divide=amount_of_blocks)
                     checksums.append(checksum.checksums)
                     total_lengths.append(checksum.totalLength)
 
         return modified_files, sources, checksums, total_lengths
 
-    def ask_file(self, file: str, source: int, checksums: List[int], total_length: int):
-        send(self.write_server, MESSAGE_TAG.ASK_FILE_DATA, (file, source, checksums, total_length),
+    def ask_file(self, path: str, source: int, checksums: List[int], total_length: int):
+        """
+        Asks the client to send a file.
+        :param path: Path of the file
+        :param source: Source of the file
+        :param checksums: Checksums of the file
+        :param total_length: Total length of the file
+        :return: None
+        """
+
+        send(self.write_server, MESSAGE_TAG.ASK_FILE_DATA, (path, source, checksums, total_length),
              timeout=self.args.timeout)
 
     def ask_files(self, files: List[str], sources: List[int], checksums: List[List[int]], total_lengths: List[int]):
+        """
+        Asks the client to send multiple files.
+        :param files: A list of paths
+        :param sources: A list of sources
+        :param checksums: A list of checksums
+        :param total_lengths: A list of total lengths
+        :return: None
+        """
+
         for i in range(len(files)):
             self.ask_file(files[i], sources[i], checksums[i], total_lengths[i])
 

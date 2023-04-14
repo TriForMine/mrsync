@@ -56,6 +56,16 @@ def _timeout_handler(_signum, _frame):
 
 
 def send(fd: int, tag: MESSAGE_TAG, v: object, timeout: Optional[int] = None, logger: Optional[Logger] = None) -> None:
+    """
+    Send a message to a file descriptor
+    :param fd: The file descriptor
+    :param tag: The message tag
+    :param v: The message data
+    :param timeout: The timeout in seconds
+    :param logger: The logger
+    :return:
+    """
+
     # Use signal.alarm for timeout
     if timeout is not None:
         signal.signal(signal.SIGALRM, _timeout_handler)
@@ -155,6 +165,13 @@ def send(fd: int, tag: MESSAGE_TAG, v: object, timeout: Optional[int] = None, lo
 
 
 def recv(fd: int, timeout: Optional[int] = None) -> (int, object):
+    """
+    Receive a message from a file descriptor
+    :param fd: The file descriptor
+    :param timeout: The timeout in seconds
+    :return: The message tag and the message data
+    """
+
     filename = ''
     source = 0
     start_byte = 0

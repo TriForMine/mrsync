@@ -32,6 +32,10 @@ class Client:
         self.args = args
 
     def run(self):
+        """
+        Run the client
+        :return:
+        """
         generator_finished = False
         server_finished = False
 
@@ -43,9 +47,11 @@ class Client:
                 file_list = generate_file_list(self.sources, self.logger, recursive=self.args.recursive,
                                                directory=self.args.dirs, options=v)
                 send(self.wr, MESSAGE_TAG.FILE_LIST, file_list, timeout=self.args.timeout, logger=self.logger)
+
             elif tag == MESSAGE_TAG.ASK_FILE_DATA:
                 (filename, source, checksums, total_length) = v
 
+                # If the filename is empty, it means that the file is the source itself
                 target_path = path.join(self.sources[source], filename) if filename != '' else self.sources[source]
                 self.logger.info(f'File data requested for {target_path}')
                 if path.isdir(target_path):
@@ -57,17 +63,21 @@ class Client:
                     with open(target_path, "rb") as f:
                         m_time = os.path.getmtime(target_path)
 
+                        # If there are no checksums, it means that the file is new
                         if not checksums:
                             send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, source, 0, 0, True, m_time, f.read()),
                                  timeout=self.args.timeout,
                                  logger=self.logger)
                             continue
 
+                        # Calculate the parts that need to be sent
                         destination_checksum = Checksum("", checksums=checksums,
                                                         part_length=total_length / len(checksums),
                                                         total_length=total_length)
                         parts = destination_checksum.compare_with_file(target_path)
 
+                        # If there are no parts, it means that the file is already up-to-date
+                        # Ask for the server to update the modification time
                         if len(parts) == 0:
                             self.logger.info(f'File {filename} is already up to date')
                             send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, source, 0, 0, False, m_time, b''),
@@ -75,11 +85,13 @@ class Client:
                                  logger=self.logger)
                             continue
                         else:
+                            # Request for all the parts
                             for part in parts:
                                 if part[2] > 0:
                                     send(self.wr, MESSAGE_TAG.FILE_DATA_OFFSET, (filename, part[0], part[1], part[2]),
                                          timeout=self.args.timeout, logger=self.logger)
                                 elif part[0] == -1 or part[1] == -1:
+                                    # If the part is -1, it means that the file needs to be sent entirely
                                     send(self.wr, MESSAGE_TAG.FILE_DATA,
                                          (filename, source, 0, 0, True, m_time, f.read()),
                                          timeout=self.args.timeout,

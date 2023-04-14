@@ -18,6 +18,10 @@ from logger import Logger
 
 
 def parse_args():
+    """
+    Parse the command line arguments.
+    :return: The parsed arguments.
+    """
     parser = argparse.ArgumentParser(description="A copy of rsync.")
 
     # Source
@@ -56,6 +60,12 @@ def parse_args():
 
 
 def get_args(logger: Logger):
+    """
+    Get the arguments and check for errors.
+    :param logger: The logger.
+    :return: The arguments.
+    """
+
     args = parse_args()
 
     if args.source == args.destination:

@@ -24,6 +24,12 @@ class Logger:
 
     def __init__(self, verbose: Optional[bool] = False, quiet: Optional[bool] = False,
                  beautify: Optional[bool] = True, debug_mode: Optional[bool] = False):
+        """
+        :param verbose: Verbose mode
+        :param quiet: Quiet mode
+        :param beautify: Beautify mode
+        :param debug_mode: Debug mode
+        """
         self.verbose = verbose
         self.quiet = quiet
         self.beautify = beautify

@@ -13,6 +13,7 @@
 #    limitations under the License.
 
 from typing import List, Optional, Tuple
+
 from adler32 import Adler32
 
 
@@ -22,7 +23,8 @@ class Checksum:
     partLength: int
     totalLength: int
 
-    def __init__(self, path: str = "", divide: int = 2, max_size: Optional[int] = None, total_length: Optional[int] = None,
+    def __init__(self, path: str = "", divide: int = 2, max_size: Optional[int] = None,
+                 total_length: Optional[int] = None,
                  checksums: Optional[List[int]] = None, part_length: Optional[int] = None):
         """
         Create a divide checksum of a file.
@@ -92,11 +94,13 @@ class Checksum:
             window = 0
 
             for i in range(other.parts):
+                # Move the window to the next part
                 f1.seek(i * other.partLength + window)
 
                 read_data = f1.read(other.partLength)
                 current_hash = Adler32(read_data)
 
+                # Calculate the checksums for all the possible windows
                 while window < other.partLength:
                     if current_hash.checksum == self.checksums[i]:
                         if window > 0:
@@ -107,6 +111,7 @@ class Checksum:
                         break
 
                     if len(read_data) <= window:
+                        # Send the whole part as a difference
                         parts.append((i * other.partLength, (i + 1) * other.partLength, 0))
                         break
 
@@ -132,6 +137,8 @@ class Checksum:
                 parts.append((other.totalLength, self.totalLength, 0))
 
         # Group parts that are next to each other
+        # This is done to reduce the amount of data that needs to be sent
+        # Example: [0, 100, 0], [100, 200, 0] -> [0, 200, 0]
         return_parts = []
         for part in parts:
             if len(return_parts) == 0:
