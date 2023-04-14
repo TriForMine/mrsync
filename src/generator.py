@@ -131,6 +131,10 @@ class Generator:
                         # Square root of the file size (rounded up to a multiple of 8)
                         block_size = int(2 ** ((file_info["size"] - 1).bit_length() + 1) ** 0.5)
 
+                    # Maximum blocks size 131kB
+                    if block_size > 131072:
+                        block_size = 131072
+
                     amount_of_blocks = int(file_info["size"] / block_size)
 
                     if file_info["size"] % block_size != 0:
