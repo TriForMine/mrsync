@@ -98,14 +98,14 @@ def generate_file_list(sources: List[str], logger,
     logger.debug("Generating file list...")
     file_list = []
 
-    def recursive_dir(path):
+    def recursive_dir(path, source_num: int):
         for root, dirs, files in os.walk(path, followlinks=True):
             for file in files:
                 file_path = os.path.join(root, file)
-                file_list.append(generate_info(file_path, options, i, rel=path))
+                file_list.append(generate_info(file_path, options, source_num, rel=path))
             for dir in dirs:
                 dir_path = os.path.join(root, dir)
-                file_list.append(generate_info(dir_path, options, i, rel=path))
+                file_list.append(generate_info(dir_path, options, source_num, rel=path))
 
             if not recursive:
                 break
@@ -116,10 +116,12 @@ def generate_file_list(sources: List[str], logger,
             if not source.endswith(os.sep):
                 if os.path.isdir(source):
                     file_list.append(generate_info(source, options, i, True))
+                    if recursive:
+                        recursive_dir(source, i)
                 elif os.path.isfile(source):
                     file_list.append(generate_info(source, options, i, True))
             else:
-                recursive_dir(source)
+                recursive_dir(source, i)
         elif os.path.isfile(source):
             file_list.append(generate_info(source, options, i, True))
 
