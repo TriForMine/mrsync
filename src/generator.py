@@ -46,6 +46,11 @@ class Generator:
         for file_info in self.source_list:
             file = file_info["path"]
             file = file if file != "" else path.basename(self.source[file_info["source"]])
+
+            if file != "" and not self.source[file_info["source"]].endswith("/") and file != path.basename(self.source[file_info["source"]]):
+                # The file is in a subdirectory, in recursive mode
+                file = path.join(path.basename(self.source[file_info["source"]]), file)
+
             if file not in self.destination_path_list:
                 files.append(file_info["path"])
                 sources.append(file_info["source"])
@@ -68,6 +73,12 @@ class Generator:
             for source in self.source_list:
                 source_file = source["path"]
                 source_file = source_file if source_file != "" else path.basename(self.source[source["source"]])
+
+                if source_file != "" and not self.source[source["source"]].endswith("/") and source_file != path.basename(
+                        self.source[source["source"]]):
+                    # The file is in a subdirectory, in recursive mode
+                    source_file = path.join(path.basename(self.source[source["source"]]), source_file)
+
                 if source_file == file:
                     found = True
                     break
@@ -90,6 +101,10 @@ class Generator:
         for file_info in self.source_list:
             file = file_info["path"]
             file = file if file != "" else path.basename(self.source[file_info["source"]])
+
+            if file != "" and not self.source[file_info["source"]].endswith("/"):
+                # The file is in a subdirectory, in recursive mode
+                file = path.join(path.basename(self.source[file_info["source"]]), file)
 
             # Check if file is in destination list
             if file in self.destination_path_list:

@@ -53,6 +53,7 @@ class Client:
 
                 # If the filename is empty, it means that the file is the source itself
                 target_path = path.join(self.sources[source], filename) if filename != '' else self.sources[source]
+
                 self.logger.info(f'File data requested for {target_path}')
                 if path.isdir(target_path):
                     m_time = os.path.getmtime(target_path)

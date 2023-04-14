@@ -242,6 +242,10 @@ class Server:
             elif tag == MESSAGE_TAG.FILE_DATA:
                 (file_name, source, start, end, whole_file, modification_time, data) = v
 
+                if file_name != "" and not self.source[source].endswith("/"):
+                    # The file is in a subdirectory, in recursive mode
+                    file_name = os.path.join(os.path.basename(self.source[source]), file_name)
+
                 target_path = os.path.join(self.destination,
                                            file_name) if file_name != '' and file_name != '/' else os.path.join(
                     self.destination,
