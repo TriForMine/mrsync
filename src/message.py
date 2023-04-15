@@ -21,7 +21,7 @@ import cbor2
 
 from src.logger import Logger
 
-MAX_SIZE = 1024 * 63
+MAX_SIZE = 512
 
 
 # Message tags
@@ -271,7 +271,7 @@ def recv(fd: int, timeout: Optional[int] = None) -> (int, object):
 
             if len(data) != message_size:
                 raise Exception(
-                    f'Error while receiving message from {fd} it was {len(data)} bytes instead of {message_size} bytes')
+                    f'Error while receiving message from {fd} it was {len(data)} bytes instead of {message_size} bytes. Data: {data}')
 
             total_data += data
             current_packet += 1

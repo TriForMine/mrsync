@@ -1,3 +1,5 @@
+#!/usr/bin/python3.8
+
 #   Copyright (c) 2023, TriForMine. (https://triformine.dev) and samsoucoupe All rights reserved.
 #  #
 #   Licensed under the Apache License, Version 2.0 (the "License");

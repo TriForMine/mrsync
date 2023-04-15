@@ -13,6 +13,9 @@
 #    limitations under the License.
 
 import os
+import sys
+import pwd
+
 
 from src.options import get_args
 from src.client import Client
@@ -20,6 +23,8 @@ from src.demon import Daemon
 from src.filelist import print_file_list
 from src.logger import Logger
 from src.server import Server
+from src.utils import parse_path
+
 
 def main(args = None):
     logger = Logger()
@@ -33,11 +38,12 @@ def main(args = None):
         print_file_list(args.source[0], logger, recursive=args.recursive, directory=args.dirs)
         exit(0)
 
-    rd_server, wr_client = os.pipe()
-    rd_client, wr_server = os.pipe()
-
     if args.server:
-        server = Server(args.source[0], args.destination, rd_server, wr_server, logger, args)
+        parsed_mode, parsed_user, parsed_host, parsed_destination = parse_path(args.destination)
+        args.destination = parsed_destination
+
+        # rd_server is stdin and wr_server is stdout
+        server = Server(args.source[0], args.destination, 0, 1, logger, args)
         server.run()
         exit(0)
 
@@ -46,19 +52,41 @@ def main(args = None):
         daemon.run()
         exit(0)
 
+    rd_server, wr_client = os.pipe()
+    rd_client, wr_server = os.pipe()
+
     pid = os.fork()
 
     if pid > 0:
+        os.close(wr_client)
+        os.close(rd_client)
+
+        parsed_mode, parsed_user, parsed_host, parsed_destination = parse_path(args.destination)
+        args.destination = parsed_destination
+
+        if parsed_mode == "local":
+            server = Server(args.source[0], args.destination, rd_server, wr_server, logger, args)
+            server.run()
+        elif parsed_mode == "ssh":
+            if not parsed_user:
+                parsed_user = pwd.getpwuid(os.getuid()).pw_name
+
+            # Redirect rd_server to stdin and wr_server to stdout
+            os.dup2(rd_server, 0)
+            os.dup2(wr_server, 1)
+
+            os.execv("/usr/bin/ssh", ["ssh", "-e", "none", "-l", parsed_user, parsed_host, "--", "python3", "mrsync.py",
+                                      "--server"] + sys.argv[1:])
+        else:
+            logger.error("Unsupported destination mode")
+            exit(1)
+    else:
         os.close(rd_server)
         os.close(wr_server)
 
         client = Client(args.source[0], rd_client, wr_client, pid, logger, args)
         client.run()
-    else:
-        os.close(wr_client)
-        os.close(rd_client)
-        server = Server(args.source[0], args.destination, rd_server, wr_server, logger, args)
-        server.run()
+
 
 if __name__ == '__main__':
     main()
