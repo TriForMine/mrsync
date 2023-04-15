@@ -103,11 +103,12 @@ class Daemon:
 
             self.logger.info("Listening on " + self.args.address + ":" + str(self.args.port))
 
-            while True:
-                rlist, _, _ = select.select([self.server] + self.clients, [], [])
-                for sock in rlist:
-                    if sock is self.server:
-                        self.accept_new_client()
-                    else:
-                        self.handle_client(sock)
+            with self.server:
+                while True:
+                    rlist, _, _ = select.select([self.server] + self.clients, [], [])
+                    for sock in rlist:
+                        if sock is self.server:
+                            self.accept_new_client()
+                        else:
+                            self.handle_client(sock)
 
