@@ -12,7 +12,7 @@ To use this rsync clone, first clone this repository to your local machine. Then
 
 Here's an example command to synchronize files between two directories:
 ```sh
-python rsync.py /path/to/source/dir/ /path/to/destination/dir/
+python3 mrsync.py /path/to/source/dir/ /path/to/destination/dir/
 ```
 
 ## Contributions
