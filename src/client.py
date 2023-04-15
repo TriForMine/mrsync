@@ -16,10 +16,10 @@ from argparse import Namespace
 from os import path
 from typing import List
 
-from checksum import Checksum
-from filelist import generate_file_list
-from logger import Logger
-from message import recv, MESSAGE_TAG, send
+from src.checksum import Checksum
+from src.filelist import generate_file_list
+from src.logger import Logger
+from src.message import recv, MESSAGE_TAG, send
 
 
 class Client:

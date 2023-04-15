@@ -14,16 +14,16 @@
 
 import os
 
-import options
-from client import Client
-from demon import run_daemon
-from filelist import print_file_list
-from logger import Logger
-from server import Server
+from src.options import get_args
+from src.client import Client
+from src.demon import run_daemon
+from src.filelist import print_file_list
+from src.logger import Logger
+from src.server import Server
 
-if __name__ == '__main__':
+def main(args = None):
     logger = Logger()
-    args = options.get_args(logger)
+    args = get_args(logger, args=args)
     logger.verbose = args.verbose
     logger.quiet = args.quiet
 
@@ -57,3 +57,6 @@ if __name__ == '__main__':
         os.close(rd_client)
         server = Server(args.source[0], args.destination, rd_server, wr_server, logger, args)
         server.run()
+
+if __name__ == '__main__':
+    main()

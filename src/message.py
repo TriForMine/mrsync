@@ -19,7 +19,7 @@ from typing import Optional
 
 import cbor2
 
-from logger import Logger
+from src.logger import Logger
 
 MAX_SIZE = 1024 * 63
 

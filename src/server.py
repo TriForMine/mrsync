@@ -17,10 +17,10 @@ import sys
 import time
 from argparse import Namespace
 
-from filelist import generate_file_list, FileListInfo
-from generator import Generator
-from logger import Logger
-from message import recv, send, MESSAGE_TAG
+from src.filelist import generate_file_list, FileListInfo
+from src.generator import Generator
+from src.logger import Logger
+from src.message import recv, send, MESSAGE_TAG
 
 
 class Server:
@@ -193,7 +193,7 @@ class Server:
 
     def loop(self):
         """
-        The main loop of the server
+        The src loop of the server
         :return:
         """
         file_list_flags = 0

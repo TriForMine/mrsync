@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/mrsync.iml" filepath="$PROJECT_DIR$/.idea/mrsync.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/mrsync-project.iml" filepath="$PROJECT_DIR$/.idea/mrsync-project.iml" />
     </modules>
   </component>
 </project>

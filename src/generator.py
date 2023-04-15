@@ -15,9 +15,9 @@ import os
 from os import path
 from typing import List, Tuple
 
-from checksum import Checksum
-from filelist import FileType
-from message import send, MESSAGE_TAG
+from src.checksum import Checksum
+from src.filelist import FileType
+from src.message import send, MESSAGE_TAG
 
 
 class Generator:

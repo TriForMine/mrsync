@@ -14,7 +14,7 @@
 
 from typing import List, Optional, Tuple
 
-from adler32 import Adler32
+from src.adler32 import Adler32
 
 
 class Checksum:
@@ -86,7 +86,6 @@ class Checksum:
         parts = []
 
         if self.totalLength < other.totalLength:
-            print("The file is smaller than the other file.")
             other.calculate(self.totalLength)
 
         # Compare the checksums

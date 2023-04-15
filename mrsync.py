@@ -11,31 +11,8 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-from argparse import Namespace
 
-import daemon
-import os
+from src.mrsync import main
 
-from src.logger import Logger
-from src.options import parse_args
-from src.server import Server
-
-
-def run_server(source: str, destination: str, rd: int, wr: int, logger: Logger, args: Namespace):
-    server = Server(source, destination, rd, wr, logger, args)
-    server.run()
-
-
-def run_daemon():
-    args = parse_args()
-    logger = Logger(args.verbose)
-    logger.info("Starting server...")
-
-    rd, wr = os.pipe()
-
-    with daemon.DaemonContext():
-        run_server(args.source, args.destination, rd, wr, logger, args)
-
-
-if __name__ == '__main__':
-    run_daemon()
+if __name__ == "__main__":
+    main()

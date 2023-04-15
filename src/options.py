@@ -14,10 +14,10 @@
 
 import argparse
 
-from logger import Logger
+from src.logger import Logger
 
 
-def parse_args():
+def parse_args(args = None):
     """
     Parse the command line arguments.
     :return: The parsed arguments.
@@ -25,10 +25,10 @@ def parse_args():
     parser = argparse.ArgumentParser(description="A copy of rsync.")
 
     # Source
-    parser.add_argument("source", type=str, action='append', help="the source file or directory", nargs='+')
+    parser.add_argument("source", type=str, action="append", help="the source file or directory", nargs="+")
 
     # Destination
-    parser.add_argument("destination", type=str, help="the destination file or directory")
+    parser.add_argument("destination", type=str, nargs="?", default=None, help="the destination file or directory")
 
     # Options
     parser.add_argument("-v", "--verbose", action="store_true", help="increase verbosity")
@@ -56,17 +56,17 @@ def parse_args():
     parser.add_argument('--server', action='store_true', help="run as the server on remote machine")
     parser.add_argument('--daemon', action='store_true', help="run as a daemon")
 
-    return parser.parse_args()
+    return parser.parse_args(args)
 
 
-def get_args(logger: Logger):
+def get_args(logger: Logger, args = None):
     """
     Get the arguments and check for errors.
     :param logger: The logger.
     :return: The arguments.
     """
 
-    args = parse_args()
+    args = parse_args(args)
 
     if args.source == args.destination:
         logger.error("Source and destination are the same.")
@@ -76,9 +76,13 @@ def get_args(logger: Logger):
         logger.error("No source specified.")
         exit(3)
 
-    if args.destination is None:
-        logger.error("No destination specified.")
-        exit(3)
+    if args.destination is None and not args.list_only:
+        if len(args.source[0]) > 1:
+            args.destination = args.source[0][-1]
+            args.source = [args.source[0][:-1]]
+        else:
+            logger.error("No destination specified.")
+            exit(3)
 
     if args.archive:
         args.recursive = True

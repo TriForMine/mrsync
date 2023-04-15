@@ -16,7 +16,7 @@ from enum import Enum
 from time import strftime, localtime
 from typing import List, Optional
 
-from adler32 import Adler32
+from src.adler32 import Adler32
 
 
 # Enum bitfield for info to include in file list.
