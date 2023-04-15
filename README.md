@@ -8,7 +8,7 @@ Rsync is a popular file synchronization tool used to copy and synchronize files 
 Our rsync clone uses a similar algorithm to the original rsync tool to transfer files efficiently. It compares the source and destination files to determine which parts of the file have changed, and only transfers those parts.
 
 ## Usage
-To use this rsync clone, first clone this repository to your local machine. Then, run the rsync.py script with the appropriate command line arguments to specify the source and destination files, as well as any additional options.
+To use this rsync clone, first clone this repository to your local machine. Then, run the mrsync.py script with the appropriate command line arguments to specify the source and destination files, as well as any additional options.
 
 Here's an example command to synchronize files between two directories:
 ```sh
