@@ -16,14 +16,15 @@ import os
 
 from src.options import get_args
 from src.client import Client
-from src.demon import run_daemon
+from src.demon import Daemon
 from src.filelist import print_file_list
 from src.logger import Logger
 from src.server import Server
 
 def main(args = None):
     logger = Logger()
-    args = get_args(logger, args=args)
+    args = get_args(logger, program_args=args)
+    logger = Logger(to_file=(args.daemon or args.server))
     logger.verbose = args.verbose
     logger.quiet = args.quiet
 
@@ -41,7 +42,8 @@ def main(args = None):
         exit(0)
 
     if args.daemon:
-        run_daemon()
+        daemon = Daemon(logger, args)
+        daemon.run()
         exit(0)
 
     pid = os.fork()

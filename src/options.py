@@ -13,6 +13,7 @@
 #    limitations under the License.
 
 import argparse
+from typing import Optional, List
 
 from src.logger import Logger
 
@@ -25,7 +26,7 @@ def parse_args(args = None):
     parser = argparse.ArgumentParser(description="A copy of rsync.")
 
     # Source
-    parser.add_argument("source", type=str, action="append", help="the source file or directory", nargs="+")
+    parser.add_argument("source", type=str, action="append", help="the source file or directory", nargs="*")
 
     # Destination
     parser.add_argument("destination", type=str, nargs="?", default=None, help="the destination file or directory")
@@ -59,14 +60,24 @@ def parse_args(args = None):
     return parser.parse_args(args)
 
 
-def get_args(logger: Logger, args = None):
+def get_args(logger: Logger, program_args: Optional[List[str]] = None):
     """
     Get the arguments and check for errors.
+    :param args: The arguments.
     :param logger: The logger.
     :return: The arguments.
     """
 
-    args = parse_args(args)
+    args = parse_args(program_args)
+
+    if not args.port:
+        args.port = 10873
+
+    if not args.address:
+        args.address = "127.0.0.1"
+
+    if args.daemon:
+        return args
 
     if args.source == args.destination:
         logger.error("Source and destination are the same.")

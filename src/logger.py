@@ -23,7 +23,7 @@ class Logger:
     quiet: Optional[bool]
 
     def __init__(self, verbose: Optional[bool] = False, quiet: Optional[bool] = False,
-                 beautify: Optional[bool] = True, debug_mode: Optional[bool] = False):
+                 beautify: Optional[bool] = True, debug_mode: Optional[bool] = False, to_file: Optional[bool] = False):
         """
         :param verbose: Verbose mode
         :param quiet: Quiet mode
@@ -34,6 +34,15 @@ class Logger:
         self.quiet = quiet
         self.beautify = beautify
         self.debug_mode = debug_mode
+        self.to_file = to_file
+
+        if self.to_file:
+            self.stdout = open("log.txt", "w")
+            self.stderr = open("error.txt", "w")
+            self.beautify = False
+        else:
+            self.stdout = sys.stdout
+            self.stderr = sys.stderr
 
         # Register exit handler
         atexit.register(self.exit_handler)
@@ -54,23 +63,23 @@ class Logger:
         fo.flush()
 
     def exit_handler(self):
-        sys.stdout.flush()
-        sys.stderr.flush()
+        self.stdout.close()
+        self.stderr.close()
 
     def log(self, message):
         if not self.quiet:
-            self.custom_print(f"[{self.time_header()}] {message}", 32)
+            self.custom_print(f"[{self.time_header()}] {message}", 32, self.stdout)
 
     def error(self, message):
-        self.custom_print(f"[{self.time_header()}] {message}", 31, sys.stderr)
+        self.custom_print(f"[{self.time_header()}] {message}", 31, self.stderr)
 
     def warn(self, message):
-        self.custom_print(f"[{self.time_header()}] {message}", 33)
+        self.custom_print(f"[{self.time_header()}] {message}", 33, self.stdout)
 
     def info(self, message):
         if self.verbose:
-            self.custom_print(f"[{self.time_header()}] {message}", 36)
+            self.custom_print(f"[{self.time_header()}] {message}", 36, self.stdout)
 
     def debug(self, message):
         if self.verbose:
-            self.custom_print(f"[{self.time_header()}] {message}", 35)
+            self.custom_print(f"[{self.time_header()}] {message}", 35, self.stdout)

@@ -14,28 +14,100 @@
 from argparse import Namespace
 
 import daemon
+import socket
+import select
+from src.logger import Logger
+from src.server import Server
 import os
 
-from src.logger import Logger
-from src.options import parse_args
-from src.server import Server
+class Daemon:
+    """
+    The daemon class, which is used to run a socket server in the background.
+    And on each client connection, it will run a new server.
+    """
+    def __init__(self, logger: Logger, args: Namespace):
+        self.logger = logger
+        self.args = args
+        self.clients = []
 
+        # Check if the daemon is already running.
+        try:
+            self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server.connect((self.args.address, self.args.port))
+            self.server.send("ping".encode())
+            data = self.server.recv(1024)
+            data = data.decode()
+            if data == "ok":
+                print("The daemon is already running.\r")
+                exit(1)
+            else:
+                print("The daemon is already running, but it is not responding.\r")
+                exit(1)
+        except ConnectionRefusedError:
+            pass
 
-def run_server(source: str, destination: str, rd: int, wr: int, logger: Logger, args: Namespace):
-    server = Server(source, destination, rd, wr, logger, args)
-    server.run()
+    def accept_new_client(self):
+        """
+        Accept a new client connection.
+        """
+        # Fork a new process to handle the client.
+        client, _ = self.server.accept()
+        self.clients.append(client)
 
+    def run_server(self, sock: socket.socket):
+        """
+        Run a new server.
+        """
+        pid = os.fork()
+        if pid != 0:
+            server = Server(self.args.source[0], self.args.destination, logger=self.logger, args=self.args, rd=sock.fileno(), wr=sock.fileno())
+            server.run()
 
-def run_daemon():
-    args = parse_args()
-    logger = Logger(args.verbose)
-    logger.info("Starting server...")
+    def handle_client(self, sock: socket.socket):
+        """
+        Handle a client connection.
+        """
+        data = sock.recv(1024)
+        if not data:
+            self.clients.remove(sock)
+            sock.close()
+            return
+        data = data.decode()
+        if data == "run":
+            self.logger.info("Running a new server...")
+            sock.send("ok".encode())
+            sock.close()
+            self.clients.remove(sock)
+            self.run_server()
+        elif data == "ping":
+            sock.send("ok".encode())
+            sock.close()
+            self.clients.remove(sock)
+        else:
+            self.logger.error("Invalid command: " + data)
+            sock.send("error".encode())
+            sock.close()
+            self.clients.remove(sock)
 
-    rd, wr = os.pipe()
+    def run(self):
+        """
+        The main loop of the daemon.
+        """
+        self.logger.info("Starting daemon...")
+        with daemon.DaemonContext(stdout=self.logger.stdout, stderr=self.logger.stderr):
+            self.logger.info("Daemon started.")
 
-    with daemon.DaemonContext():
-        run_server(args.source, args.destination, rd, wr, logger, args)
+            self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server.bind((self.args.address, self.args.port))
+            self.server.listen(5)
 
+            self.logger.info("Listening on " + self.args.address + ":" + str(self.args.port))
 
-if __name__ == '__main__':
-    run_daemon()
+            while True:
+                rlist, _, _ = select.select([self.server] + self.clients, [], [])
+                for sock in rlist:
+                    if sock is self.server:
+                        self.accept_new_client()
+                    else:
+                        self.handle_client(sock)
+
