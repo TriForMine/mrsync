@@ -189,7 +189,13 @@ def print_file_list(sources: List[str], logger, recursive: Optional[bool] = Fals
         # Make so evertyhing is aligned
         size = size.rjust(max_size_length)
 
-        full_path = file['path'] if file['path'] != "" else os.path.basename(sources[file['source']])
+        file_name = file['path']
+
+        if file_name != "" and not sources[file['source']].endswith("/"):
+            # The file is in a subdirectory, in recursive mode
+            file_name = os.path.join(os.path.basename(sources[file['source']]), file_name)
+
+        full_path = file_name if file_name != "" else os.path.basename(sources[file['source']])
 
         logger.log(
             f"{permission_string} {size} {time} {full_path}")

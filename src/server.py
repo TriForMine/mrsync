@@ -55,9 +55,10 @@ class Server:
         self.logger.info(f"Time elapsed: {t2 - t1:.2f}s")
         sys.exit(0)
 
-    def handle_file_creation(self, path: str, data: bytes):
+    def handle_file_creation(self, path: str, data: bytes, modification_time: int):
         """
         Handle file creation
+        :param modification_time: The modification time of the file
         :param path: The file path
         :param data:  The file data
         :return: None
@@ -79,8 +80,12 @@ class Server:
             with open(path, "wb") as f:
                 f.write(data)
 
+            # Set the modification time
+            atime = os.path.getatime(path)
+            os.utime(path, (atime, modification_time))
+
     def handle_file_modification(self, path: str, start_byte: int, end_byte: int, whole_file: bool,
-                                 modification_time: float, data: bytes):
+                                 modification_time: int, data: bytes):
         """
         Handle file modification
         :param path: The file path
@@ -258,7 +263,7 @@ class Server:
 
                 # Check whether the file needs to be created or modified
                 if not os.path.exists(target_path):
-                    self.handle_file_creation(target_path, data)
+                    self.handle_file_creation(target_path, data, modification_time)
                 else:
                     self.handle_file_modification(target_path, start, end, whole_file, modification_time, data)
             elif tag == MESSAGE_TAG.FILE_DATA_OFFSET:

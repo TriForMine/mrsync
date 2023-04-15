@@ -92,8 +92,7 @@ def get_args(logger: Logger, program_args: Optional[List[str]] = None):
             args.destination = args.source[0][-1]
             args.source = [args.source[0][:-1]]
         else:
-            logger.error("No destination specified.")
-            exit(3)
+            args.list_only = True
 
     if args.archive:
         args.recursive = True
