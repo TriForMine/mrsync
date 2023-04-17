@@ -13,20 +13,19 @@
 #    limitations under the License.
 
 import os
-import sys
 import pwd
+import sys
 
-
-from src.options import get_args
 from src.client import Client
 from src.demon import Daemon
 from src.filelist import print_file_list
 from src.logger import Logger
+from src.options import get_args
 from src.server import Server
 from src.utils import parse_path
 
 
-def main(args = None):
+def main(args=None):
     logger = Logger()
     args = get_args(logger, program_args=args)
     logger = Logger(to_file=(args.daemon or args.server))
@@ -39,13 +38,22 @@ def main(args = None):
         exit(0)
 
     if args.server:
-        parsed_mode, parsed_user, parsed_host, parsed_destination = parse_path(args.destination)
-        args.destination = parsed_destination
+        parsed_source_mode, parsed_source_user, parsed_source_host, parsed_source_destination = parse_path(
+            args.source[0])
 
-        # rd_server is stdin and wr_server is stdout
-        server = Server(args.source[0], args.destination, 0, 1, logger, args)
-        server.run()
-        exit(0)
+        if parsed_source_mode == "ssh":
+            args.source[0] = [parsed_source_destination]
+            client = Client(args.source[0], 0, 1, 0, logger, args)
+            client.run()
+            exit(0)
+        else:
+            parsed_mode, parsed_user, parsed_host, parsed_destination = parse_path(args.destination)
+            args.destination = parsed_destination
+
+            # rd_server is stdin and wr_server is stdout
+            server = Server(args.source[0], args.destination, 0, 1, logger, args)
+            server.run()
+            exit(0)
 
     if args.daemon:
         daemon = Daemon(logger, args)

@@ -21,7 +21,7 @@ import cbor2
 
 from src.logger import Logger
 
-MAX_SIZE = 512
+MAX_SIZE = 256
 
 
 # Message tags
