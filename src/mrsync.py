@@ -39,7 +39,7 @@ def main(args=None):
 
     if args.server:
         parsed_source_mode, parsed_source_user, parsed_source_host, parsed_source_destination = parse_path(
-            args.source[0])
+            args.source[0][0])
 
         if parsed_source_mode == "ssh":
             args.source[0] = [parsed_source_destination]
@@ -47,7 +47,7 @@ def main(args=None):
             client.run()
             exit(0)
         else:
-            parsed_mode, parsed_user, parsed_host, parsed_destination = parse_path(args.destination)
+            parsed_destination_mode, parsed_destination_user, parsed_destination_host, parsed_destination = parse_path(args.destination)
             args.destination = parsed_destination
 
             # rd_server is stdin and wr_server is stdout
@@ -60,30 +60,43 @@ def main(args=None):
         daemon.run()
         exit(0)
 
+    # SSH will only be able to ask for the password if it is in the foreground, so only the parent process will be able to be used to execute SSH
+    # So depending on if destination is local or remote, the parent process will be the client or the server
+    # If both source and destination are ssh, the program will exit with an error
+    parsed_destination_mode, parsed_destination_user, parsed_destination_host, parsed_destination = parse_path(
+            args.destination)
+
+    # Check if first source is local or remote
+    parsed_source_mode, parsed_source_user, parsed_source_host, parsed_source_destination = parse_path(
+        args.source[0][0])
+
+    if parsed_source_mode == "ssh" and parsed_destination_mode == "ssh":
+         logger.error("Cannot use SSH for both source and destination")
+         exit(1)
+
     rd_server, wr_client = os.pipe()
     rd_client, wr_server = os.pipe()
 
     pid = os.fork()
 
-    if pid > 0:
+    if (pid > 0 and parsed_destination_mode == "ssh") or (pid == 0 and parsed_destination_mode != "ssh"):
         os.close(wr_client)
         os.close(rd_client)
 
-        parsed_mode, parsed_user, parsed_host, parsed_destination = parse_path(args.destination)
         args.destination = parsed_destination
 
-        if parsed_mode == "local":
+        if parsed_destination_mode == "local":
             server = Server(args.source[0], args.destination, rd_server, wr_server, logger, args)
             server.run()
-        elif parsed_mode == "ssh":
-            if not parsed_user:
-                parsed_user = pwd.getpwuid(os.getuid()).pw_name
+        elif parsed_destination_mode == "ssh":
+            if not parsed_destination_user:
+                parsed_destination_user = pwd.getpwuid(os.getuid()).pw_name
 
             # Redirect rd_server to stdin and wr_server to stdout
             os.dup2(rd_server, 0)
             os.dup2(wr_server, 1)
 
-            os.execv("/usr/bin/ssh", ["ssh", "-e", "none", "-l", parsed_user, parsed_host, "--", "python3", "mrsync.py",
+            os.execv("/usr/bin/ssh", ["ssh", "-e", "none", "-l", parsed_destination_user, parsed_destination_host, "--", "python3", "mrsync.py",
                                       "--server"] + sys.argv[1:])
         else:
             logger.error("Unsupported destination mode")
@@ -92,8 +105,19 @@ def main(args=None):
         os.close(rd_server)
         os.close(wr_server)
 
-        client = Client(args.source[0], rd_client, wr_client, pid, logger, args)
-        client.run()
+        if parsed_source_mode == "ssh":
+            if not parsed_source_user:
+                parsed_source_user = pwd.getpwuid(os.getuid()).pw_name
+
+            # Redirect rd_client to stdin and wr_client to stdout
+            os.dup2(rd_client, 0)
+            os.dup2(wr_client, 1)
+
+            os.execv("/usr/bin/ssh", ["ssh", "-e", "none", "-l", parsed_source_user, parsed_source_host, "--", "python3", "mrsync.py",
+                                      "--server"] + sys.argv[1:])
+        else:
+            client = Client(args.source[0], rd_client, wr_client, pid, logger, args)
+            client.run()
 
 
 if __name__ == '__main__':
