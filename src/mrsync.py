@@ -74,6 +74,10 @@ def main(args=None):
          logger.error("Cannot use SSH for both source and destination")
          exit(1)
 
+    if parsed_source_mode == "ssh" and len(args.source[0]) > 1:
+        logger.error("Cannot use multiple sources with SSH")
+        exit(1)
+
     rd_server, wr_client = os.pipe()
     rd_client, wr_server = os.pipe()
 
