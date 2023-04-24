@@ -81,6 +81,14 @@ def main(args=None):
         logger.error("Cannot use multiple sources with SSH")
         exit(1)
 
+    if parsed_source_mode == "daemon" and parsed_destination_mode == "daemon":
+        logger.error("Cannot use daemon for both source and destination")
+        exit(1)
+
+    if parsed_source_mode == "daemon" and len(args.source[0]) > 1:
+        logger.error("Cannot use multiple sources with daemon")
+        exit(1)
+
     rd_server, wr_client = os.pipe()
     rd_client, wr_server = os.pipe()
 
