@@ -46,7 +46,8 @@ class Client:
                 file_list = generate_file_list(self.sources, self.logger, recursive=self.args.recursive,
                                                directory=self.args.dirs, options=v)
                 send(self.wr, MESSAGE_TAG.FILE_LIST, file_list, timeout=self.args.timeout, logger=self.logger)
-
+            elif tag == MESSAGE_TAG.PING:
+                send(self.wr, MESSAGE_TAG.PONG, timeout=self.args.timeout, logger=self.logger)
             elif tag == MESSAGE_TAG.ASK_FILE_DATA:
                 (filename, source, checksums, total_length) = v
 

@@ -127,8 +127,19 @@ class Daemon:
                 while os.waitpid(pid, os.WNOHANG)[0] == 0:
                     r, _, _ = select.select(lst, [], [])
                     if sock in r:
-                        _, identification = recv(SocketMethod(sock))
+                        identification_flag, identification = recv(SocketMethod(sock))
+                        self.logger.info("[Daemon] Received identification: " + str(identification))
+
+                        if identification_flag == MESSAGE_TAG.PING:
+                            send(SocketMethod(sock), MESSAGE_TAG.PONG, pid)
+                            continue
+                        elif identification_flag != MESSAGE_TAG.SOCKET_IDENTIFICATION:
+                            self.logger.error("[Daemon] The socket identification is not correct.")
+                            send(SocketMethod(sock), MESSAGE_TAG.END, None)
+                            exit(1)
+
                         flag, data = recv(SocketMethod(sock))
+                        self.logger.info("[Daemon] Received flag: " + str(flag))
 
                         if identification == SOCKET_IDENTIFICATION.CLIENT:
                             send(FileDescriptorMethod(wr_server), flag, data)
@@ -164,7 +175,8 @@ class Daemon:
         """
         Handle a client connection.
         """
-        data = sock.recv(1024)
+        size = int.from_bytes(sock.recv(4), byteorder="big")
+        data = sock.recv(size)
         if not data:
             self.clients.remove(sock)
             sock.close()

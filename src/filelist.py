@@ -16,6 +16,8 @@ from enum import Enum
 from time import strftime, localtime
 from typing import List, Optional
 
+from argparse import Namespace
+
 from src.adler32 import Adler32
 
 
@@ -40,6 +42,25 @@ class FileListInfo(Enum):
     def __str__(self):
         return self.name.replace('_', ' ').title()
 
+def generate_file_list_flags_from_args(args: Namespace):
+    file_list_flags = 0
+
+    if args.hard_links:
+        file_list_flags |= FileListInfo.HARD_LINKS.value
+    if args.perms:
+        file_list_flags |= FileListInfo.PERMISSIONS.value
+    if args.times:
+        file_list_flags |= FileListInfo.FILE_TIMES.value
+    if args.size_only:
+        file_list_flags |= FileListInfo.FILE_SIZE.value
+    if args.checksum:
+        file_list_flags |= FileListInfo.CHECKSUM.value
+
+    if not args.checksum:
+        file_list_flags |= FileListInfo.FILE_SIZE.value
+        file_list_flags |= FileListInfo.FILE_TIMES.value
+
+    return file_list_flags
 
 def generate_info(path, options, source, is_self=False, rel=None):
     """
@@ -147,19 +168,14 @@ def humanize_size(size: int):
     return size
 
 
-def print_file_list(sources: List[str], logger, recursive: Optional[bool] = False,
-                    directory: Optional[bool] = False):
+def print_file_list(sources: List[str], logger, file_list: List[dict]):
     """
     Print a file list.
+    :param file_list:  The file list to print.
     :param sources: The sources to generate the file list from.
     :param logger: The logger to log to.
-    :param recursive: Whether to recursively generate the file list.
-    :param directory: Whether to treat sources as directories.
     :return:
     """
-    file_list = generate_file_list(sources, logger, recursive=recursive, directory=directory,
-                                   options=FileListInfo.PERMISSIONS.value | FileListInfo.FILE_SIZE.value | FileListInfo.FILE_TIMES.value)
-
     # Calculate max length of size to align columns
     max_size_length = 0
     for file in file_list:

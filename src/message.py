@@ -50,6 +50,10 @@ class MESSAGE_TAG(Enum):
     SERVER_FINISHED = 10
     # Socket Identification (Click or Server)
     SOCKET_IDENTIFICATION = 11
+    # Ping
+    PING = 12
+    # Pong
+    PONG = 13
 
     def __str__(self):
         return self.name.replace('_', ' ').title()

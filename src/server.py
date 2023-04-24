@@ -17,7 +17,7 @@ import sys
 import time
 from argparse import Namespace
 
-from src.filelist import generate_file_list, FileListInfo
+from src.filelist import generate_file_list, FileListInfo, generate_file_list_flags_from_args
 from src.generator import Generator
 from src.logger import Logger
 from src.message import recv, send, MESSAGE_TAG, MessageMethod
@@ -201,32 +201,18 @@ class Server:
         The src loop of the server
         :return:
         """
-        file_list_flags = 0
 
-        if self.args.hard_links:
-            file_list_flags |= FileListInfo.HARD_LINKS.value
-        if self.args.perms:
-            file_list_flags |= FileListInfo.PERMISSIONS.value
-        if self.args.times:
-            file_list_flags |= FileListInfo.FILE_TIMES.value
-        if self.args.size_only:
-            file_list_flags |= FileListInfo.FILE_SIZE.value
-        if self.args.checksum:
-            file_list_flags |= FileListInfo.CHECKSUM.value
-
-        if not self.args.checksum:
-            file_list_flags |= FileListInfo.FILE_SIZE.value
-            file_list_flags |= FileListInfo.FILE_TIMES.value
-
-        send(self.wr, MESSAGE_TAG.ASK_FILE_LIST, file_list_flags, timeout=self.args.timeout, logger=self.logger)
+        send(self.wr, MESSAGE_TAG.ASK_FILE_LIST, generate_file_list_flags_from_args(self.args), timeout=self.args.timeout, logger=self.logger)
         while True:
             tag, v = recv(self.rd, timeout=self.args.timeout, compress_file=self.args.compress)
 
             if tag == MESSAGE_TAG.ASK_FILE_LIST:
                 destination_files = generate_file_list([self.destination], self.logger, recursive=self.args.recursive,
-                                                       directory=True, options=file_list_flags)
+                                                       directory=True, options=generate_file_list_flags_from_args(self.args))
                 send(self.wr, MESSAGE_TAG.FILE_LIST, destination_files, timeout=self.args.timeout,
                      logger=self.logger)
+            elif tag == MESSAGE_TAG.PING:
+                send(self.wr, MESSAGE_TAG.PONG, None, timeout=self.args.timeout, logger=self.logger)
             elif tag == MESSAGE_TAG.FILE_LIST:
                 self.logger.info(f'File list received {v}')
 
@@ -239,7 +225,7 @@ class Server:
                     self.rd.close()
                     destination_files = generate_file_list([self.destination], self.logger,
                                                            recursive=self.args.recursive,
-                                                           directory=True, options=file_list_flags)
+                                                           directory=True, options=generate_file_list_flags_from_args(self.args))
                     generator = Generator(self.wr, self.source, self.destination, source_files, destination_files,
                                           self.logger, self.args)
                     generator.run()
