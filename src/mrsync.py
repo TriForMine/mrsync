@@ -14,9 +14,11 @@
 
 import os
 import pwd
+import signal
 import sys
 import select
 import socket
+from argparse import Namespace
 
 from src.client import Client
 from src.demon import Daemon
@@ -26,8 +28,6 @@ from src.message import FileDescriptorMethod, recv, SocketMethod, send, MESSAGE_
 from src.options import get_args
 from src.server import Server
 from src.utils import parse_path
-
-
 def main(args=None):
     logger = Logger()
     args = get_args(logger, program_args=args)
@@ -109,19 +109,42 @@ def main(args=None):
             logger.debug("Connecting to daemon...")
 
             # Start a socket client to the daemon and send the "run" command
-            # Then redirect rd_server and wr_server to the socket
+            # Then redirect rd_client and wr_client to the socket
 
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect((parsed_destination_host, args.port))
+            try:
+                sock.connect((parsed_destination_host, args.port))
+            except ConnectionRefusedError:
+                logger.error("Could not connect to daemon")
+                exit(1)
+
             sock.sendall(b"run " + " ".join(sys.argv[1:]).encode("utf-8") + b"\n")
 
             logger.debug("Connected to daemon")
 
-            os.dup2(rd_server, sock.fileno())
-            os.dup2(wr_server, sock.fileno())
+            # Send all from rd_client to the socket and read all from the socket and send it to wr_client
+            while True:
+                r, w, x = select.select([sock, rd_server], [], [])
+                if sock in r:
+                    flag_identification, identification = recv(SocketMethod(sock))
 
-            server = Server(args.source[0], args.destination, FileDescriptorMethod(rd_server), FileDescriptorMethod(wr_server), logger, args)
-            server.run()
+                    flag, data = recv(SocketMethod(sock))
+
+                    if identification == SOCKET_IDENTIFICATION.CLIENT:
+                        send(FileDescriptorMethod(wr_server), flag, data)
+                    elif identification == SOCKET_IDENTIFICATION.SERVER:
+                        # This should never happen
+                        logger.error("Received message from server while being the server")
+                        exit(1)
+
+                if rd_server in r:
+                    flag, data = recv(FileDescriptorMethod(rd_server))
+
+                    if flag == MESSAGE_TAG.END:
+                        break
+
+                    send(SocketMethod(sock), MESSAGE_TAG.SOCKET_IDENTIFICATION, SOCKET_IDENTIFICATION.SERVER)
+                    send(SocketMethod(sock), flag, data)
         else:
             logger.error("Unsupported destination mode")
             exit(1)
@@ -146,7 +169,13 @@ def main(args=None):
             # Then redirect rd_client and wr_client to the socket
 
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect((parsed_source_host, args.port))
+            try:
+                sock.connect((parsed_source_host, args.port))
+            except ConnectionRefusedError:
+                logger.error("Could not connect to daemon")
+                # Kill the child process
+                os.kill(pid, signal.SIGKILL)
+                exit(1)
 
             sock.sendall(b"run " + " ".join(sys.argv[1:]).encode("utf-8") + b"\n")
 
@@ -161,7 +190,9 @@ def main(args=None):
                     flag, data = recv(SocketMethod(sock))
 
                     if identification == SOCKET_IDENTIFICATION.CLIENT:
-                        send(FileDescriptorMethod(wr_server), flag, data)
+                        # This should never happen
+                        logger.error("Received message from client while being the client")
+                        exit(1)
                     elif identification == SOCKET_IDENTIFICATION.SERVER:
                         send(FileDescriptorMethod(wr_client), flag, data)
 
@@ -172,14 +203,6 @@ def main(args=None):
                         break
 
                     send(SocketMethod(sock), MESSAGE_TAG.SOCKET_IDENTIFICATION, SOCKET_IDENTIFICATION.CLIENT)
-                    send(SocketMethod(sock), flag, data)
-
-                if rd_server in r:
-                    flag, data = recv(FileDescriptorMethod(rd_server))
-                    if flag == MESSAGE_TAG.END:
-                        break
-
-                    send(SocketMethod(sock), MESSAGE_TAG.SOCKET_IDENTIFICATION, SOCKET_IDENTIFICATION.SERVER)
                     send(SocketMethod(sock), flag, data)
         else:
             client = Client(args.source[0], FileDescriptorMethod(rd_client), FileDescriptorMethod(wr_client), logger, args)

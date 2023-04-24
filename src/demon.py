@@ -103,7 +103,7 @@ class Daemon:
                             args.destination)
                         args.destination = parsed_destination
 
-                        self.logger.info(f'[Daemon] Running a new server with args for socket {sock}')
+                        self.logger.info(f'[Daemon] Running a new server for socket {sock}')
 
                         # rd_server is stdin and wr_server is stdout
                         server = Server(args.source[0], args.destination, FileDescriptorMethod(rd_server), FileDescriptorMethod(wr_server), self.logger, args)
@@ -122,7 +122,7 @@ class Daemon:
                 if parsed_source_mode == "daemon":
                     lst = [sock, rd_server]
                 else:
-                    lst = [sock, rd_client, rd_server]
+                    lst = [sock, rd_client]
 
                 while os.waitpid(pid, os.WNOHANG)[0] == 0:
                     r, _, _ = select.select(lst, [], [])
@@ -134,11 +134,17 @@ class Daemon:
                             send(FileDescriptorMethod(wr_server), flag, data)
                         elif identification == SOCKET_IDENTIFICATION.SERVER:
                             send(FileDescriptorMethod(wr_client), flag, data)
+
+                        if flag == MESSAGE_TAG.END:
+                            self.logger.info(f'[Daemon] The child process with PID {pid} exited.')
+                            exit(0)
+
                     if rd_client in r:
                         flag, data = recv(FileDescriptorMethod(rd_client))
 
                         send(SocketMethod(sock), MESSAGE_TAG.SOCKET_IDENTIFICATION, SOCKET_IDENTIFICATION.CLIENT)
                         send(SocketMethod(sock), flag, data)
+
                     if rd_server in r:
                         flag, data = recv(FileDescriptorMethod(rd_server))
 
@@ -205,3 +211,7 @@ class Daemon:
                         else:
                             self.handle_client(sock)
 
+
+        # When the daemon exits, wait for all the child processes to exit.
+        while os.waitpid(-1, os.WNOHANG)[0] > 0:
+            pass
