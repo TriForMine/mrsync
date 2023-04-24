@@ -21,7 +21,7 @@ import select
 from src.client import Client
 from src.logger import Logger
 from src.message import recv, FileDescriptorMethod, send, SocketMethod, SOCKET_IDENTIFICATION, MESSAGE_TAG
-from src.options import parse_args, get_args
+from src.options import get_args
 from src.server import Server
 import os
 
