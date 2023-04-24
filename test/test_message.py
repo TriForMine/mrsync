@@ -61,7 +61,10 @@ class TestMessage(unittest.TestCase):
         Test if the timeout is triggered when no message is sent
         :return:
         """
-        self.assertEqual(recv(FileDescriptorMethod(self.pipes[0]), timeout=1), None)
+        with self.assertRaises((SystemExit, TimeoutError), msg="The timeout is not triggered when no message is sent") as cm:
+            recv(FileDescriptorMethod(self.pipes[0]), timeout=1)
+
+        self.assertEqual(cm.exception.code, 30, msg="The exit code is not 30")
 
     def test_timeout2(self):
         """
