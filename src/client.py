@@ -19,16 +19,15 @@ from typing import List
 from src.checksum import Checksum
 from src.filelist import generate_file_list
 from src.logger import Logger
-from src.message import recv, MESSAGE_TAG, send
+from src.message import recv, MESSAGE_TAG, send, MessageMethod
 
 
 class Client:
-    def __init__(self, sources: List[str], rd: int, wr: int, server_pid: int, logger: Logger, args: Namespace):
+    def __init__(self, sources: List[str], rd: MessageMethod, wr: MessageMethod, logger: Logger, args: Namespace):
         self.logger = logger
         self.sources = sources
         self.rd = rd
         self.wr = wr
-        self.server_pid = server_pid
         self.args = args
 
     def run(self):
@@ -59,7 +58,7 @@ class Client:
                     m_time = os.path.getmtime(target_path)
                     send(self.wr, MESSAGE_TAG.FILE_DATA, (filename + '/', source, 0, 0, True, m_time, b''),
                          timeout=self.args.timeout,
-                         logger=self.logger)
+                         logger=self.logger, compress_file=self.args.compress)
                 else:
                     with open(target_path, "rb") as f:
                         m_time = os.path.getmtime(target_path)
@@ -68,7 +67,7 @@ class Client:
                         if not checksums:
                             send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, source, 0, 0, True, m_time, f.read()),
                                  timeout=self.args.timeout,
-                                 logger=self.logger)
+                                 logger=self.logger, compress_file=self.args.compress)
                             continue
 
                         # Calculate the parts that need to be sent
@@ -83,26 +82,26 @@ class Client:
                             self.logger.info(f'File {filename} is already up to date')
                             send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, source, 0, 0, False, m_time, b''),
                                  timeout=self.args.timeout,
-                                 logger=self.logger)
+                                 logger=self.logger, compress_file=self.args.compress)
                             continue
                         else:
                             # Request for all the parts
                             for part in parts:
                                 if part[2] > 0:
                                     send(self.wr, MESSAGE_TAG.FILE_DATA_OFFSET, (filename, part[0], part[1], part[2]),
-                                         timeout=self.args.timeout, logger=self.logger)
+                                         timeout=self.args.timeout, logger=self.logger, compress_file=self.args.compress)
                                 elif part[0] == -1 or part[1] == -1:
                                     # If the part is -1, it means that the file needs to be sent entirely
                                     send(self.wr, MESSAGE_TAG.FILE_DATA,
                                          (filename, source, 0, 0, True, m_time, f.read()),
                                          timeout=self.args.timeout,
-                                         logger=self.logger)
+                                         logger=self.logger, compress_file=self.args.compress)
                                 else:
                                     f.seek(part[0])
                                     data = f.read(part[1] - part[0] + 1)
                                     send(self.wr, MESSAGE_TAG.FILE_DATA,
                                          (filename, source, part[0], part[1], False, m_time, data),
-                                         timeout=self.args.timeout, logger=self.logger)
+                                         timeout=self.args.timeout, logger=self.logger, compress_file=self.args.compress)
             elif tag == MESSAGE_TAG.END:
                 self.logger.debug('End of transmission')
                 break
@@ -120,5 +119,5 @@ class Client:
                 raise Exception(f'Unknown message tag {tag}')
 
         self.logger.debug('Client finished')
-        os.close(self.rd)
-        os.close(self.wr)
+        self.rd.close()
+        self.wr.close()

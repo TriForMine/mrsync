@@ -17,11 +17,11 @@ from typing import List, Tuple
 
 from src.checksum import Checksum
 from src.filelist import FileType
-from src.message import send, MESSAGE_TAG
+from src.message import send, MESSAGE_TAG, MessageMethod
 
 
 class Generator:
-    def __init__(self, write_server, source, destination, source_list: List[dict], destination_list: List[dict], logger,
+    def __init__(self, write_server: MessageMethod, source, destination, source_list: List[dict], destination_list: List[dict], logger,
                  args):
         # Sort source and destination lists with dict.path
         self.source_list = sorted(source_list, key=lambda x: x["path"])
@@ -226,4 +226,4 @@ class Generator:
 
         self.logger.info("Generator finished")
         send(self.write_server, MESSAGE_TAG.GENERATOR_FINISHED, None, timeout=self.args.timeout)
-        os.close(self.write_server)
+        self.write_server.close()

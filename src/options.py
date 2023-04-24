@@ -41,6 +41,7 @@ def parse_args(args = None):
     parser.add_argument("-H", "--hard-links", action="store_true", help="preserve hard links")
     parser.add_argument("-p", "--perms", action="store_true", help="preserve permissions")
     parser.add_argument("-t", "--times", action="store_true", help="preserve times")
+    parser.add_argument("-z", "--compress", action="store_true", help="compress file data")
     parser.add_argument("--existing", action="store_true", help="skip creating new files on receiver")
     parser.add_argument("--ignore-existing", action="store_true", help="skip updating files that exist on receiver")
     parser.add_argument("--delete", action="store_true", help="delete extraneous files from dest dirs")
@@ -56,6 +57,7 @@ def parse_args(args = None):
     parser.add_argument("--checksum", action="store_true", help="skip based on checksum, not mod-time & size")
     parser.add_argument('--server', action='store_true', help="run as the server on remote machine")
     parser.add_argument('--daemon', action='store_true', help="run as a daemon")
+    parser.add_argument('--no-detach', action='store_true', help="don't detach from the controlling terminal")
 
     return parser.parse_args(args)
 

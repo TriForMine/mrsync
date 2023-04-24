@@ -20,11 +20,11 @@ from argparse import Namespace
 from src.filelist import generate_file_list, FileListInfo
 from src.generator import Generator
 from src.logger import Logger
-from src.message import recv, send, MESSAGE_TAG
+from src.message import recv, send, MESSAGE_TAG, MessageMethod
 
 
 class Server:
-    def __init__(self, source: str, destination: str, rd: int, wr: int, logger: Logger, args: Namespace):
+    def __init__(self, source: str, destination: str, rd: MessageMethod, wr: MessageMethod, logger: Logger, args: Namespace):
         """
         Server constructor
         :param source: The source directory
@@ -220,7 +220,7 @@ class Server:
 
         send(self.wr, MESSAGE_TAG.ASK_FILE_LIST, file_list_flags, timeout=self.args.timeout, logger=self.logger)
         while True:
-            tag, v = recv(self.rd, timeout=self.args.timeout)
+            tag, v = recv(self.rd, timeout=self.args.timeout, compress_file=self.args.compress)
 
             if tag == MESSAGE_TAG.ASK_FILE_LIST:
                 destination_files = generate_file_list([self.destination], self.logger, recursive=self.args.recursive,
@@ -236,7 +236,7 @@ class Server:
 
                 # Once the file list is received, we start the generator
                 if pid == 0:
-                    os.close(self.rd)
+                    self.rd.close()
                     destination_files = generate_file_list([self.destination], self.logger,
                                                            recursive=self.args.recursive,
                                                            directory=True, options=file_list_flags)

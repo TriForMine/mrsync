@@ -14,6 +14,8 @@
 import os
 import signal
 import time
+import socket
+import zlib
 from enum import Enum
 from typing import Optional
 
@@ -46,18 +48,74 @@ class MESSAGE_TAG(Enum):
     DELETE_FILES = 9
     # Server finished
     SERVER_FINISHED = 10
+    # Socket Identification (Click or Server)
+    SOCKET_IDENTIFICATION = 11
 
     def __str__(self):
         return self.name.replace('_', ' ').title()
 
+class SOCKET_IDENTIFICATION(Enum):
+    CLIENT = 1
+    SERVER = 2
+
+    def __str__(self):
+        return self.name.replace('_', ' ').title()
 
 def _timeout_handler(_signum, _frame):
     raise TimeoutError("Timeout reached.")
 
+# A class that will be inherited to support both file descriptors and sockets
+class MessageMethod:
+    def __init__(self):
+        self.fd = None
 
-def send(fd: int, tag: MESSAGE_TAG, v: object, timeout: Optional[int] = None, logger: Optional[Logger] = None) -> None:
+    def send(self, data) -> int:
+        raise NotImplementedError
+
+    def recv(self, size):
+        raise NotImplementedError
+
+    def close(self):
+        raise NotImplementedError
+
+class FileDescriptorMethod(MessageMethod):
+    def __init__(self, fd):
+        super().__init__()
+        self.fd = fd
+
+    def send(self, data):
+        return os.write(self.fd, data)
+
+    def recv(self, size):
+        return os.read(self.fd, size)
+
+    def close(self):
+        os.close(self.fd)
+
+    def __str__(self):
+        return f"FileDescriptorMethod({self.fd})"
+
+class SocketMethod(MessageMethod):
+    def __init__(self, fd: socket.socket):
+        super().__init__()
+        self.fd = fd
+
+    def send(self, data):
+        return self.fd.send(data)
+
+    def recv(self, size):
+        return self.fd.recv(size)
+
+    def close(self):
+        self.fd.close()
+
+    def __str__(self):
+        return f"SocketMethod({self.fd})"
+
+def send(fd: MessageMethod, tag: MESSAGE_TAG, v: object, timeout: Optional[int] = None, logger: Optional[Logger] = None, compress_file: bool = False) -> None:
     """
     Send a message to a file descriptor
+    :param compress_file: Whether to compress the file or not
     :param fd: The file descriptor
     :param tag: The message tag
     :param v: The message data
@@ -74,6 +132,13 @@ def send(fd: int, tag: MESSAGE_TAG, v: object, timeout: Optional[int] = None, lo
     try:
         if tag == MESSAGE_TAG.FILE_DATA:
             (filename, source, start, end, whole_file, modification_time, data) = v
+            if compress_file:
+                data = zlib.compress(data)
+        elif tag == MESSAGE_TAG.SOCKET_IDENTIFICATION:
+            if v == SOCKET_IDENTIFICATION.CLIENT:
+                data = (1).to_bytes(4, byteorder='big')
+            elif v == SOCKET_IDENTIFICATION.SERVER:
+                data = (2).to_bytes(4, byteorder='big')
         else:
             data = cbor2.dumps(v)
 
@@ -83,55 +148,55 @@ def send(fd: int, tag: MESSAGE_TAG, v: object, timeout: Optional[int] = None, lo
 
         # Send total amount of packets
         size = amount_of_packets.to_bytes(4, byteorder='big')
-        os.write(fd, size)
+        fd.send(size)
 
         # Send message tag
         size = tag.value.to_bytes(4, byteorder='big')
-        os.write(fd, size)
+        fd.send(size)
 
         if tag == MESSAGE_TAG.FILE_DATA:
             filename_data = filename.encode('utf-8')
 
             # Send size of filename
             size = len(filename_data).to_bytes(4, byteorder='big')
-            os.write(fd, size)
+            fd.send(size)
 
             # Send filename
-            os.write(fd, filename_data)
+            fd.send(filename_data)
 
             # Send source
             size = source.to_bytes(4, byteorder='big')
-            os.write(fd, size)
+            fd.send(size)
 
             # Send start byte
             size = start.to_bytes(4, byteorder='big')
-            os.write(fd, size)
+            fd.send(size)
 
             # Send end byte
             size = end.to_bytes(4, byteorder='big')
-            os.write(fd, size)
+            fd.send(size)
 
             # Send whole file
             size = whole_file.to_bytes(1, byteorder='big')
-            os.write(fd, size)
+            fd.send(size)
 
             # Send modification time
             size = int(modification_time).to_bytes(4, byteorder='big')
-            os.write(fd, size)
+            fd.send(size)
 
         for i in range(amount_of_packets):
             slice = data[i * MAX_SIZE:(i + 1) * MAX_SIZE]
 
             # Send current packet number
             size = i.to_bytes(4, byteorder='big')
-            os.write(fd, size)
+            fd.send(size)
 
             # Send message size first
             size = len(slice).to_bytes(4, byteorder='big')
-            os.write(fd, size)
+            fd.send(size)
 
             # Send message data
-            response = os.write(fd, slice)
+            response = fd.send(slice)
             bytes_sent += response
             if response != len(slice):
                 raise Exception(f'Error while sending message {tag} to {fd}')
@@ -164,9 +229,10 @@ def send(fd: int, tag: MESSAGE_TAG, v: object, timeout: Optional[int] = None, lo
         signal.alarm(0)
 
 
-def recv(fd: int, timeout: Optional[int] = None) -> (int, object):
+def recv(fd: MessageMethod, timeout: Optional[int] = None, compress_file: bool = False) -> (int, object):
     """
     Receive a message from a file descriptor
+    :param compress_file: Whether to compress the file or not
     :param fd: The file descriptor
     :param timeout: The timeout in seconds
     :return: The message tag and the message data
@@ -186,13 +252,13 @@ def recv(fd: int, timeout: Optional[int] = None) -> (int, object):
 
     try:
         # Receive total amount of packets
-        size = os.read(fd, 4)
+        size = fd.recv(4)
         if not size:
             return MESSAGE_TAG.END, None
         amount_of_packets = int.from_bytes(size, byteorder='big')
 
         # Receive message tag
-        size = os.read(fd, 4)
+        size = fd.recv(4)
         if not size:
             return MESSAGE_TAG.END, None
         tag = int.from_bytes(size, byteorder='big')
@@ -207,43 +273,43 @@ def recv(fd: int, timeout: Optional[int] = None) -> (int, object):
 
         if tag == MESSAGE_TAG.FILE_DATA:
             # Receive size of filename
-            size = os.read(fd, 4)
+            size = fd.recv(4)
             if not size:
                 return MESSAGE_TAG.END, None
             filename_size = int.from_bytes(size, byteorder='big')
 
             # Receive filename
-            filename = os.read(fd, filename_size)
+            filename = fd.recv(filename_size)
             if not size:
                 return MESSAGE_TAG.END, None
             filename = filename.decode('utf-8')
 
             # Receive source
-            size = os.read(fd, 4)
+            size = fd.recv(4)
             if not size:
                 return MESSAGE_TAG.END, None
             source = int.from_bytes(size, byteorder='big')
 
             # Receive start byte
-            size = os.read(fd, 4)
+            size = fd.recv(4)
             if not size:
                 return MESSAGE_TAG.END, None
             start_byte = int.from_bytes(size, byteorder='big')
 
             # Receive end byte
-            size = os.read(fd, 4)
+            size = fd.recv(4)
             if not size:
                 return MESSAGE_TAG.END, None
             end_byte = int.from_bytes(size, byteorder='big')
 
             # Receive whole file
-            size = os.read(fd, 1)
+            size = fd.recv(1)
             if not size:
                 return MESSAGE_TAG.END, None
             whole_file = int.from_bytes(size, byteorder='big')
 
             # Receive modification time
-            size = os.read(fd, 4)
+            size = fd.recv(4)
             if not size:
                 return MESSAGE_TAG.END, None
             modification_time = int.from_bytes(size, byteorder='big')
@@ -253,31 +319,39 @@ def recv(fd: int, timeout: Optional[int] = None) -> (int, object):
 
         while current_packet < amount_of_packets:
             # Receive current packet number
-            size = os.read(fd, 4)
+            size = fd.recv(4)
             if not size:
                 return MESSAGE_TAG.END, None
             current_packet = int.from_bytes(size, byteorder='big')
 
             # Receive message size first
-            size = os.read(fd, 4)
+            size = fd.recv(4)
             if not size:
                 return MESSAGE_TAG.END, None
             message_size = int.from_bytes(size, byteorder='big')
 
             # Receive message data
-            data = os.read(fd, message_size)
+            data = fd.recv(message_size)
             if not data and message_size != 0:
                 return MESSAGE_TAG.END, None
 
             if len(data) != message_size:
-                raise Exception(
-                    f'Error while receiving message from {fd} it was {len(data)} bytes instead of {message_size} bytes. Data: {data}')
+                # Try to receive the rest of the data
+                tries = 0
+                while len(data) < message_size and tries < 10:
+                    data += fd.recv(message_size - len(data))
+                    tries += 1
 
             total_data += data
             current_packet += 1
 
         if tag == MESSAGE_TAG.FILE_DATA:
+            if compress_file:
+                total_data = zlib.decompress(total_data)
             return tag, (filename, source, start_byte, end_byte, whole_file, modification_time, total_data)
+
+        if tag == MESSAGE_TAG.SOCKET_IDENTIFICATION:
+            return tag, SOCKET_IDENTIFICATION(int.from_bytes(total_data, byteorder='big'))
 
         return tag, cbor2.loads(total_data)
     except TimeoutError:
