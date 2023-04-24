@@ -23,13 +23,13 @@ def parse_args(args = None):
     Parse the command line arguments.
     :return: The parsed arguments.
     """
-    parser = argparse.ArgumentParser(description="A copy of rsync.")
+    parser = argparse.ArgumentParser(description="A copy of rsync.", prog="mrsync", allow_abbrev=True)
 
     # Source
-    parser.add_argument("source", type=str, action="append", help="the source file or directory", nargs="*")
+    parser.add_argument("source", type=str, action="append", help="the source file or directory", nargs="*", metavar="SOURCE")
 
     # Destination
-    parser.add_argument("destination", type=str, nargs="?", default=None, help="the destination file or directory")
+    parser.add_argument("destination", type=str, nargs="?", default=None, help="the destination file or directory", metavar="DESTINATION")
 
     # Options
     parser.add_argument("-v", "--verbose", action="store_true", help="increase verbosity")
@@ -59,7 +59,7 @@ def parse_args(args = None):
     parser.add_argument('--daemon', action='store_true', help="run as a daemon")
     parser.add_argument('--no-detach', action='store_true', help="don't detach from the controlling terminal")
 
-    return parser.parse_args(args)
+    return parser.parse_args(args), parser
 
 
 def get_args(logger: Logger, program_args: Optional[List[str]] = None):
@@ -70,7 +70,7 @@ def get_args(logger: Logger, program_args: Optional[List[str]] = None):
     :return: The arguments.
     """
 
-    args = parse_args(program_args)
+    args, parser = parse_args(program_args)
 
     if not args.port:
         args.port = 10873
@@ -85,16 +85,16 @@ def get_args(logger: Logger, program_args: Optional[List[str]] = None):
         logger.error("Source and destination are the same.")
         exit(3)
 
-    if len(args.source) == 0:
-        logger.error("No source specified.")
-        exit(3)
-
     if args.destination is None and not args.list_only:
         if len(args.source[0]) > 1:
             args.destination = args.source[0][-1]
             args.source = [args.source[0][:-1]]
         else:
             args.list_only = True
+
+    if len(args.source) == 0 or len(args.source[0]) == 0:
+        parser.print_help()
+        exit(1)
 
     if args.archive:
         args.recursive = True

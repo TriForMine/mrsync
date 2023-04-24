@@ -369,6 +369,12 @@ OPTIONS
               the URL syntax has a way to specify the port as a  part  of  the
               URL).  See also this option in the --daemon mode section.
 
+       -z, --compress
+             This  tells  mrsync  to compress file data during the transfer.
+             This is a good way to reduce network  traffic  when  the  files
+             being  transferred  are  not  already  compressed.   The  level
+             of compression is controlled by the --compress-level option.
+
 
        --list-only
               This  option will cause the source files to be listed instead of
@@ -489,7 +495,8 @@ SEE ALSO
 
 
 BUGS
-       [TO BE COMPLETED BY STUDENTS]
+       Sometimes mrsync will not receive the whole data stream when using ssh.
+       Executing mrsync a second time will usually fix the problem.
 
 
 INTERNAL OPTIONS
@@ -503,6 +510,6 @@ CREDITS
        page.
 
 AUTHORS
-       This mrsync has been written by [TO BE COMPLETED BY STUDENTS].
+       This mrsync has been written by Quentin Nicolini and Samy Ben Dhiab.
 
-                                  L2 info math-info 2021              mrsync(1)
+                                  L2 info math-info 2023              mrsync(1)

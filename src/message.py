@@ -225,6 +225,7 @@ def send(fd: MessageMethod, tag: MESSAGE_TAG, v: object, timeout: Optional[int] 
     except TimeoutError:
         if logger is not None:
             logger.error(f'Timeout reached while sending message {tag} ')
+        exit(30)
     finally:
         signal.alarm(0)
 
@@ -342,6 +343,9 @@ def recv(fd: MessageMethod, timeout: Optional[int] = None, compress_file: bool =
                     data += fd.recv(message_size - len(data))
                     tries += 1
 
+                if len(data) != message_size:
+                    exit(23)
+
             total_data += data
             current_packet += 1
 
@@ -355,6 +359,6 @@ def recv(fd: MessageMethod, timeout: Optional[int] = None, compress_file: bool =
 
         return tag, cbor2.loads(total_data)
     except TimeoutError:
-        print(f'Timeout reached while receiving message')
+        exit(30)
     finally:
         signal.alarm(0)
