@@ -26,17 +26,17 @@ class TestMessage(unittest.TestCase):
         Test if a simple message is correctly sent and received
         :return:
         """
-        send(FileDescriptorMethod(self.pipes[1]), MESSAGE_TAG.END, "test")
-        self.assertEqual(recv(FileDescriptorMethod(self.pipes[0])), (MESSAGE_TAG.END, "test"))
+        send(FileDescriptorMethod(self.pipes[1]), MESSAGE_TAG.END, "unit_tests")
+        self.assertEqual(recv(FileDescriptorMethod(self.pipes[0])), (MESSAGE_TAG.END, "unit_tests"))
 
     def test_multiple_message(self):
         """
         Test if multiple messages are correctly sent and received
         :return:
         """
-        send(FileDescriptorMethod(self.pipes[1]), MESSAGE_TAG.END, "test")
+        send(FileDescriptorMethod(self.pipes[1]), MESSAGE_TAG.END, "unit_tests")
         send(FileDescriptorMethod(self.pipes[1]), MESSAGE_TAG.END, "test2")
-        self.assertEqual(recv(FileDescriptorMethod(self.pipes[0])), (MESSAGE_TAG.END, "test"))
+        self.assertEqual(recv(FileDescriptorMethod(self.pipes[0])), (MESSAGE_TAG.END, "unit_tests"))
         self.assertEqual(recv(FileDescriptorMethod(self.pipes[0])), (MESSAGE_TAG.END, "test2"))
 
     def test_big_message(self):
@@ -44,17 +44,26 @@ class TestMessage(unittest.TestCase):
         Test if a big message is correctly sent and received
         :return:
         """
-        send(FileDescriptorMethod(self.pipes[1]), MESSAGE_TAG.END, "test" * 1000)
-        self.assertEqual(recv(FileDescriptorMethod(self.pipes[0])), (MESSAGE_TAG.END, "test" * 1000))
+        send(FileDescriptorMethod(self.pipes[1]), MESSAGE_TAG.END, "unit_tests" * 1000)
+        self.assertEqual(recv(FileDescriptorMethod(self.pipes[0])), (MESSAGE_TAG.END, "unit_tests" * 1000))
 
     def test_file_data(self):
         """
         Test if the file data is correctly sent and received
         :return:
         """
-        data = ("test" * 1000).encode()
-        send(FileDescriptorMethod(self.pipes[1]), MESSAGE_TAG.FILE_DATA, ('test.txt', 0, 0, 0, True, 0, data))
-        self.assertEqual(recv(FileDescriptorMethod(self.pipes[0])), (MESSAGE_TAG.FILE_DATA, ('test.txt', 0, 0, 0, True, 0, data)))
+        data = ("unit_tests" * 1000).encode()
+        send(FileDescriptorMethod(self.pipes[1]), MESSAGE_TAG.FILE_DATA, ('unit_tests.txt', {"mtime": 0}, 0, 0, True, data))
+        self.assertEqual(recv(FileDescriptorMethod(self.pipes[0])), (MESSAGE_TAG.FILE_DATA, ('unit_tests.txt', {"mtime": 0}, 0, 0, True, data)))
+
+    def test_file_data_with_compress(self):
+        """
+        Test if the file data is correctly sent and received with compress
+        :return:
+        """
+        data = ("unit_tests" * 1000).encode()
+        send(FileDescriptorMethod(self.pipes[1]), MESSAGE_TAG.FILE_DATA, ('unit_tests.txt', {"mtime": 0}, 0, 0, True, data), compress_file=True, compress_level=9)
+        self.assertEqual(recv(FileDescriptorMethod(self.pipes[0]), compress_file=True), (MESSAGE_TAG.FILE_DATA, ('unit_tests.txt', {"mtime": 0}, 0, 0, True, data)))
 
     def test_timeout(self):
         """
@@ -71,8 +80,8 @@ class TestMessage(unittest.TestCase):
         Test if the timeout is not triggered when a message is sent
         :return:
         """
-        send(FileDescriptorMethod(self.pipes[1]), MESSAGE_TAG.END, "test")
-        self.assertEqual(recv(FileDescriptorMethod(self.pipes[0]), timeout=1), (MESSAGE_TAG.END, "test"))
+        send(FileDescriptorMethod(self.pipes[1]), MESSAGE_TAG.END, "unit_tests")
+        self.assertEqual(recv(FileDescriptorMethod(self.pipes[0]), timeout=1), (MESSAGE_TAG.END, "unit_tests"))
 
 if __name__ == "__main__":
     unittest.main()
