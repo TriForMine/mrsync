@@ -48,6 +48,8 @@ def main(args=None):
         parsed_source_destination = None
 
     if args.list_only and not (args.server or args.daemon):
+        file_list = []
+
         logger.debug_mode = True
         if parsed_source_mode == "local":
             file_list = generate_file_list(args.source[0], logger, recursive=args.recursive, directory=args.dirs,

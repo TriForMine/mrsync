@@ -42,6 +42,7 @@ def parse_args(args = None):
     parser.add_argument("-p", "--perms", action="store_true", help="preserve permissions")
     parser.add_argument("-t", "--times", action="store_true", help="preserve times")
     parser.add_argument("-z", "--compress", action="store_true", help="compress file data")
+    parser.add_argument("--compress-level", type=int, help="specify level of compression")
     parser.add_argument("--existing", action="store_true", help="skip creating new files on receiver")
     parser.add_argument("--ignore-existing", action="store_true", help="skip updating files that exist on receiver")
     parser.add_argument("--delete", action="store_true", help="delete extraneous files from dest dirs")
@@ -58,6 +59,7 @@ def parse_args(args = None):
     parser.add_argument('--server', action='store_true', help="run as the server on remote machine")
     parser.add_argument('--daemon', action='store_true', help="run as a daemon")
     parser.add_argument('--no-detach', action='store_true', help="don't detach from the controlling terminal")
+    parser.add_argument('--version', action='store_true', help="print version number")
 
     return parser.parse_args(args), parser
 
@@ -65,12 +67,17 @@ def parse_args(args = None):
 def get_args(logger: Logger, program_args: Optional[List[str]] = None):
     """
     Get the arguments and check for errors.
-    :param args: The arguments.
+    :param program_args: The program arguments.
     :param logger: The logger.
     :return: The arguments.
     """
 
     args, parser = parse_args(program_args)
+
+    if args.version:
+        print("mrsync 0.1.0")
+        print("Written by TriForMine. (https://triformine.dev) and Samsoucoupe")
+        exit(0)
 
     if not args.port:
         args.port = 10873
@@ -95,6 +102,13 @@ def get_args(logger: Logger, program_args: Optional[List[str]] = None):
     if len(args.source) == 0 or len(args.source[0]) == 0:
         parser.print_help()
         exit(1)
+
+    if args.compress_level is None:
+        args.compress_level = 9
+
+    if args.compress_level < 1 or args.compress_level > 9:
+        logger.error("Invalid compression level.")
+        exit(2)
 
     if args.archive:
         args.recursive = True

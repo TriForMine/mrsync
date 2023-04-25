@@ -84,9 +84,13 @@ def generate_info(path, options, source, is_self=False, rel=None):
     info = {'type': file_type.value, 'path': info_path, 'source': source}
 
     if options & FileListInfo.HARD_LINKS.value:
-        info['hard_links'] = os.stat(path).st_nlink
+        # Send all the hard links
+        info['hard_links'] = []
+        for link in os.listdir(os.path.dirname(path)):
+            if os.stat(os.path.join(os.path.dirname(path), link)).st_ino == os.stat(path).st_ino and link != os.path.basename(path):
+                info['hard_links'].append(link)
     if options & FileListInfo.PERMISSIONS.value:
-        info['permissions'] = oct(os.stat(path).st_mode)[-3:]
+        info['permissions'] = os.stat(path).st_mode
     if options & FileListInfo.FILE_SIZE.value:
         info['size'] = os.stat(path).st_size
     if options & FileListInfo.FILE_TIMES.value:
@@ -186,6 +190,7 @@ def print_file_list(sources: List[str], logger, file_list: List[dict]):
     # Print like ls -l
     for file in file_list:
         # Generate permission string from permission int
+        file['permissions'] = str(file['permissions'])[-3:]
         permission_string = ""
         for i in range(3):
             permission_string += "r" if int(file['permissions'][i]) & 4 else "-"

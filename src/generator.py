@@ -51,6 +51,9 @@ class Generator:
                 # The file is in a subdirectory, in recursive mode
                 file = path.join(path.basename(self.source[file_info["source"]]), file)
 
+            if not self.destination.endswith("/") and file != path.basename(self.destination):
+                file = ''
+
             if file not in self.destination_path_list:
                 files.append(file_info["path"])
                 sources.append(file_info["source"])
@@ -79,6 +82,12 @@ class Generator:
                     # The file is in a subdirectory, in recursive mode
                     source_file = path.join(path.basename(self.source[source["source"]]), source_file)
 
+                if not self.destination.endswith("/") and source_file != path.basename(self.destination):
+                    if '' in self.destination_path_list:
+                        found = True
+
+                    continue
+
                 if source_file == file:
                     found = True
                     break
@@ -106,9 +115,11 @@ class Generator:
                 # The file is in a subdirectory, in recursive mode
                 file = path.join(path.basename(self.source[file_info["source"]]), file)
 
+            if not self.destination.endswith("/") and file != path.basename(self.destination):
+                file = ''
+
             # Check if file is in destination list
             if file in self.destination_path_list:
-
                 # Skip directories
                 if file_info["type"] == FileType.DIRECTORY.value:
                     continue
@@ -137,7 +148,10 @@ class Generator:
                 if is_modified:
                     modified_files.append(file_info["path"])
                     sources.append(file_info["source"])
-                    destination_path = path.join(self.destination, destination_info["path"])
+                    if destination_info["path"] == '':
+                        destination_path = self.destination
+                    else:
+                        destination_path = path.join(self.destination, destination_info["path"])
 
                     # Amount of blocks calculated from the total file size
                     # Block size is calculated like the real rsync

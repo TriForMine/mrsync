@@ -17,7 +17,7 @@ from os import path
 from typing import List
 
 from src.checksum import Checksum
-from src.filelist import generate_file_list
+from src.filelist import generate_file_list, generate_info, generate_file_list_flags_from_args
 from src.logger import Logger
 from src.message import recv, MESSAGE_TAG, send, MessageMethod
 
@@ -54,21 +54,20 @@ class Client:
                 # If the filename is empty, it means that the file is the source itself
                 target_path = path.join(self.sources[source], filename) if filename != '' else self.sources[source]
 
+                file_info = generate_info(target_path, generate_file_list_flags_from_args(self.args), source, False)
+
                 self.logger.info(f'File data requested for {target_path}')
                 if path.isdir(target_path):
-                    m_time = os.path.getmtime(target_path)
-                    send(self.wr, MESSAGE_TAG.FILE_DATA, (filename + '/', source, 0, 0, True, m_time, b''),
+                    send(self.wr, MESSAGE_TAG.FILE_DATA, (filename + '/', file_info, 0, 0, True, b''),
                          timeout=self.args.timeout,
-                         logger=self.logger, compress_file=self.args.compress)
+                         logger=self.logger, compress_file=self.args.compress, compress_level=self.args.compress_level)
                 else:
                     with open(target_path, "rb") as f:
-                        m_time = os.path.getmtime(target_path)
-
                         # If there are no checksums, it means that the file is new
                         if not checksums:
-                            send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, source, 0, 0, True, m_time, f.read()),
+                            send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, file_info, 0, 0, True, f.read()),
                                  timeout=self.args.timeout,
-                                 logger=self.logger, compress_file=self.args.compress)
+                                 logger=self.logger, compress_file=self.args.compress, compress_level=self.args.compress_level)
                             continue
 
                         # Calculate the parts that need to be sent
@@ -81,28 +80,28 @@ class Client:
                         # Ask for the server to update the modification time
                         if len(parts) == 0:
                             self.logger.info(f'File {filename} is already up to date')
-                            send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, source, 0, 0, False, m_time, b''),
+                            send(self.wr, MESSAGE_TAG.FILE_DATA, (filename, file_info, 0, 0, False, b''),
                                  timeout=self.args.timeout,
-                                 logger=self.logger, compress_file=self.args.compress)
+                                 logger=self.logger, compress_file=self.args.compress, compress_level=self.args.compress_level)
                             continue
                         else:
                             # Request for all the parts
                             for part in parts:
                                 if part[2] > 0:
                                     send(self.wr, MESSAGE_TAG.FILE_DATA_OFFSET, (filename, part[0], part[1], part[2]),
-                                         timeout=self.args.timeout, logger=self.logger, compress_file=self.args.compress)
+                                         timeout=self.args.timeout, logger=self.logger, compress_file=self.args.compress, compress_level=self.args.compress_level)
                                 elif part[0] == -1 or part[1] == -1:
                                     # If the part is -1, it means that the file needs to be sent entirely
                                     send(self.wr, MESSAGE_TAG.FILE_DATA,
-                                         (filename, source, 0, 0, True, m_time, f.read()),
+                                         (filename, file_info, 0, 0, True, f.read()),
                                          timeout=self.args.timeout,
-                                         logger=self.logger, compress_file=self.args.compress)
+                                         logger=self.logger, compress_file=self.args.compress, compress_level=self.args.compress_level)
                                 else:
                                     f.seek(part[0])
                                     data = f.read(part[1] - part[0] + 1)
                                     send(self.wr, MESSAGE_TAG.FILE_DATA,
-                                         (filename, source, part[0], part[1], False, m_time, data),
-                                         timeout=self.args.timeout, logger=self.logger, compress_file=self.args.compress)
+                                         (filename, file_info, part[0], part[1], False, data),
+                                         timeout=self.args.timeout, logger=self.logger, compress_file=self.args.compress, compress_level=self.args.compress_level)
             elif tag == MESSAGE_TAG.END:
                 self.logger.debug('End of transmission')
                 break

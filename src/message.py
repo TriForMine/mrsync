@@ -116,7 +116,7 @@ class SocketMethod(MessageMethod):
     def __str__(self):
         return f"SocketMethod({self.fd})"
 
-def send(fd: MessageMethod, tag: MESSAGE_TAG, v: object, timeout: Optional[int] = None, logger: Optional[Logger] = None, compress_file: bool = False) -> None:
+def send(fd: MessageMethod, tag: MESSAGE_TAG, v: object, timeout: Optional[int] = None, logger: Optional[Logger] = None, compress_file: bool = False, compress_level: int = 9) -> None:
     """
     Send a message to a file descriptor
     :param compress_file: Whether to compress the file or not
@@ -135,9 +135,9 @@ def send(fd: MessageMethod, tag: MESSAGE_TAG, v: object, timeout: Optional[int] 
 
     try:
         if tag == MESSAGE_TAG.FILE_DATA:
-            (filename, source, start, end, whole_file, modification_time, data) = v
+            (filename, file_info, start, end, whole_file, data) = v
             if compress_file:
-                data = zlib.compress(data)
+                data = zlib.compress(data, compress_level)
         elif tag == MESSAGE_TAG.SOCKET_IDENTIFICATION:
             if v == SOCKET_IDENTIFICATION.CLIENT:
                 data = (1).to_bytes(4, byteorder='big')
@@ -168,9 +168,15 @@ def send(fd: MessageMethod, tag: MESSAGE_TAG, v: object, timeout: Optional[int] 
             # Send filename
             fd.send(filename_data)
 
-            # Send source
-            size = source.to_bytes(4, byteorder='big')
+            # Encode file info
+            encoded_file_info = cbor2.dumps(file_info)
+
+            # Send file info size
+            size = len(encoded_file_info).to_bytes(4, byteorder='big')
             fd.send(size)
+
+            # Send file info
+            fd.send(encoded_file_info)
 
             # Send start byte
             size = start.to_bytes(4, byteorder='big')
@@ -182,10 +188,6 @@ def send(fd: MessageMethod, tag: MESSAGE_TAG, v: object, timeout: Optional[int] 
 
             # Send whole file
             size = whole_file.to_bytes(1, byteorder='big')
-            fd.send(size)
-
-            # Send modification time
-            size = int(modification_time).to_bytes(4, byteorder='big')
             fd.send(size)
 
         for i in range(amount_of_packets):
@@ -248,7 +250,7 @@ def recv(fd: MessageMethod, timeout: Optional[int] = None, compress_file: bool =
     start_byte = 0
     end_byte = 0
     whole_file = False
-    modification_time = 0
+    file_info = None
 
     # Use signal.alarm for timeout
     if timeout is not None:
@@ -289,11 +291,17 @@ def recv(fd: MessageMethod, timeout: Optional[int] = None, compress_file: bool =
                 return MESSAGE_TAG.END, None
             filename = filename.decode('utf-8')
 
-            # Receive source
+            # Receive file info size
             size = fd.recv(4)
             if not size:
                 return MESSAGE_TAG.END, None
-            source = int.from_bytes(size, byteorder='big')
+            file_info_size = int.from_bytes(size, byteorder='big')
+
+            # Receive file info
+            file_info = fd.recv(file_info_size)
+            if not size:
+                return MESSAGE_TAG.END, None
+            file_info = cbor2.loads(file_info)
 
             # Receive start byte
             size = fd.recv(4)
@@ -312,12 +320,6 @@ def recv(fd: MessageMethod, timeout: Optional[int] = None, compress_file: bool =
             if not size:
                 return MESSAGE_TAG.END, None
             whole_file = int.from_bytes(size, byteorder='big')
-
-            # Receive modification time
-            size = fd.recv(4)
-            if not size:
-                return MESSAGE_TAG.END, None
-            modification_time = int.from_bytes(size, byteorder='big')
 
         current_packet = 0
         total_data = b''
@@ -356,7 +358,7 @@ def recv(fd: MessageMethod, timeout: Optional[int] = None, compress_file: bool =
         if tag == MESSAGE_TAG.FILE_DATA:
             if compress_file:
                 total_data = zlib.decompress(total_data)
-            return tag, (filename, source, start_byte, end_byte, whole_file, modification_time, total_data)
+            return tag, (filename, file_info, start_byte, end_byte, whole_file, total_data)
 
         if tag == MESSAGE_TAG.SOCKET_IDENTIFICATION:
             return tag, SOCKET_IDENTIFICATION(int.from_bytes(total_data, byteorder='big'))

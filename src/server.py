@@ -55,10 +55,10 @@ class Server:
         self.logger.info(f"Time elapsed: {t2 - t1:.2f}s")
         sys.exit(0)
 
-    def handle_file_creation(self, path: str, data: bytes, modification_time: int):
+    def handle_file_creation(self, path: str, data: bytes, file_info: dict):
         """
         Handle file creation
-        :param modification_time: The modification time of the file
+        :param file_info: The file info
         :param path: The file path
         :param data:  The file data
         :return: None
@@ -80,12 +80,27 @@ class Server:
             with open(path, "wb") as f:
                 f.write(data)
 
-            # Set the modification time
-            atime = os.path.getatime(path)
-            os.utime(path, (atime, modification_time))
+            if self.args.hard_links and len(file_info['hard_links']) > 0:
+                for link in file_info['hard_links']:
+                    self.logger.info(f"Creating hard link {link}...")
+                    link = os.path.join(os.path.dirname(path), link)
+                    if os.path.exists(link):
+                        os.remove(link)
+                    os.link(path, link)
+
+            if self.args.perms:
+                os.chmod(path, file_info['permissions'])
+
+            if self.args.times:
+                # Set the access and modification time
+                os.utime(path, (file_info['atime'], file_info['mtime']))
+            else:
+                # Set the modification time
+                atime = os.path.getatime(path)
+                os.utime(path, (atime, file_info['mtime']))
 
     def handle_file_modification(self, path: str, start_byte: int, end_byte: int, whole_file: bool,
-                                 modification_time: int, data: bytes):
+                                 file_info: dict, data: bytes):
         """
         Handle file modification
         :param path: The file path
@@ -119,9 +134,24 @@ class Server:
                 if whole_file:
                     f.truncate()
 
-            # Set the modification time
-            atime = os.path.getatime(path)
-            os.utime(path, (atime, modification_time))
+            if self.args.hard_links and len(file_info['hard_links']) > 0:
+                for link in file_info['hard_links']:
+                    self.logger.info(f"Creating hard link {link}...")
+                    link = os.path.join(os.path.dirname(path), link)
+                    if os.path.exists(link):
+                        os.remove(link)
+                    os.link(path, link)
+
+            if self.args.perms:
+                os.chmod(path, int(file_info['permissions']))
+
+            if self.args.times:
+                # Set the access and modification time
+                os.utime(path, (file_info['atime'], file_info['mtime']))
+            else:
+                # Set the modification time
+                atime = os.path.getatime(path)
+                os.utime(path, (atime, file_info['mtime']))
         else:
             self.logger.warn(f"Cannot modify directory {path}")
 
@@ -136,7 +166,6 @@ class Server:
 
         for file in files:
             self.logger.info(f"Deleting {file}...")
-            print(self.destination, file)
 
             # If the file is a directory, we delete it
             if os.path.isdir(os.path.join(self.destination, file)):
@@ -144,8 +173,6 @@ class Server:
                     # If the directory is empty, we delete it
                     os.rmdir(os.path.join(self.destination, file))
                 except OSError:
-                    # If the directory is not empty, we delete all files in it
-
                     # If the directory is not empty and --force is set, we delete it recursively
                     if self.args.force:
                         shutil.rmtree(os.path.join(self.destination, file))
@@ -231,27 +258,33 @@ class Server:
                     generator.run()
                     sys.exit(0)
             elif tag == MESSAGE_TAG.FILE_DATA:
-                (file_name, source, start, end, whole_file, modification_time, data) = v
+                (file_name, file_info, start, end, whole_file, data) = v
+                source = file_info['source']
+                modification_time = file_info['mtime']
 
                 if file_name != "" and not self.source[source].endswith("/"):
                     # The file is in a subdirectory, in recursive mode
                     file_name = os.path.join(os.path.basename(self.source[source]), file_name)
 
-                target_path = os.path.join(self.destination,
-                                           file_name) if file_name != '' and file_name != '/' else os.path.join(
-                    self.destination,
-                    os.path.basename(
-                        self.source[
-                            source]))
+
+                if self.destination.endswith("/"):
+                    target_path = os.path.join(self.destination,
+                                               file_name) if file_name != '' and file_name != '/' else os.path.join(
+                        self.destination,
+                        os.path.basename(
+                            self.source[
+                                source]))
+                else:
+                    target_path = self.destination
 
                 if file_name == '/':
                     target_path += '/'
 
                 # Check whether the file needs to be created or modified
                 if not os.path.exists(target_path):
-                    self.handle_file_creation(target_path, data, modification_time)
+                    self.handle_file_creation(target_path, data, file_info)
                 else:
-                    self.handle_file_modification(target_path, start, end, whole_file, modification_time, data)
+                    self.handle_file_modification(target_path, start, end, whole_file, file_info, data)
             elif tag == MESSAGE_TAG.FILE_DATA_OFFSET:
                 (file_name, start, end, offset) = v
                 self.handle_file_offset(file_name, start, end, offset)
