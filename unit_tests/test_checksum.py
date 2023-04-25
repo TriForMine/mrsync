@@ -22,18 +22,18 @@ class ChecksumTest(unittest.TestCase):
     def setUp(self):
         self.test_dir = tempfile.TemporaryDirectory()
 
-        self.file = path.join(self.test_dir.name, "unit_tests.txt")
+        self.file = path.join(self.test_dir.name, "test.txt")
         self.file2 = path.join(self.test_dir.name, "test2.txt")
         self.file3 = path.join(self.test_dir.name, "test3.txt")
 
         with open(self.file, "w") as f:
-            f.write("unit_tests")
+            f.write("test")
 
         with open(self.file2, "w") as f:
             f.write("test2")
 
         with open(self.file3, "w") as f:
-            f.write(" unit_tests")
+            f.write(" test")
 
     def tearDown(self) -> None:
         self.test_dir.cleanup()
@@ -45,7 +45,7 @@ class ChecksumTest(unittest.TestCase):
         """
         checksum = Checksum(self.file, divide=1)
         self.assertEqual(len(checksum.checksums), 1, "Checksums length is not 1.")
-        self.assertEqual(checksum.checksums[0], adler32(b"unit_tests"), "Checksum is not correct.")
+        self.assertEqual(checksum.checksums[0], adler32(b"test"), "Checksum is not correct.")
 
     def test_multiple_checksum(self):
         """
