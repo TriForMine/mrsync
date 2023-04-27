@@ -104,7 +104,7 @@ def get_args(logger: Logger, program_args: Optional[List[str]] = None):
         parser.print_help()
         exit(1)
 
-    if not args.destination.endswith("/"):
+    if args.destination and not args.destination.endswith("/"):
         # If the destination is a directory, add a trailing slash.
         if os.path.exists(args.destination) and os.path.isdir(args.destination):
             args.destination += "/"
