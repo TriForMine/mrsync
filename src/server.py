@@ -17,14 +17,26 @@ import sys
 import time
 from argparse import Namespace
 
-from src.filelist import generate_file_list, FileListInfo, generate_file_list_flags_from_args
+from src.filelist import (
+    generate_file_list,
+    FileListInfo,
+    generate_file_list_flags_from_args,
+)
 from src.generator import Generator
 from src.logger import Logger
 from src.message import recv, send, MESSAGE_TAG, MessageMethod
 
 
 class Server:
-    def __init__(self, source: str, destination: str, rd: MessageMethod, wr: MessageMethod, logger: Logger, args: Namespace):
+    def __init__(
+        self,
+        source: str,
+        destination: str,
+        rd: MessageMethod,
+        wr: MessageMethod,
+        logger: Logger,
+        args: Namespace,
+    ):
         """
         Server constructor
         :param source: The source directory
@@ -38,8 +50,8 @@ class Server:
         self.source = source
 
         # Add trailing slash if destination is a directory
-        if not destination.endswith('/') and os.path.isdir(destination):
-            destination += '/'
+        if not destination.endswith("/") and os.path.isdir(destination):
+            destination += "/"
 
         self.destination = destination
         self.wr = wr
@@ -47,11 +59,11 @@ class Server:
         self.args = args
 
     def run(self):
-        self.logger.info('Server started')
+        self.logger.info("Server started")
         t1 = time.time()
         self.loop()
         t2 = time.time()
-        self.logger.info('Server stopped')
+        self.logger.info("Server stopped")
         self.logger.info(f"Time elapsed: {t2 - t1:.2f}s")
         sys.exit(0)
 
@@ -80,8 +92,8 @@ class Server:
             with open(path, "wb") as f:
                 f.write(data)
 
-            if self.args.hard_links and len(file_info['hard_links']) > 0:
-                for link in file_info['hard_links']:
+            if self.args.hard_links and len(file_info["hard_links"]) > 0:
+                for link in file_info["hard_links"]:
                     self.logger.info(f"Creating hard link {link}...")
                     link = os.path.join(os.path.dirname(path), link)
                     if os.path.exists(link):
@@ -89,18 +101,25 @@ class Server:
                     os.link(path, link)
 
             if self.args.perms:
-                os.chmod(path, file_info['permissions'])
+                os.chmod(path, file_info["permissions"])
 
             if self.args.times:
                 # Set the access and modification time
-                os.utime(path, (file_info['atime'], file_info['mtime']))
+                os.utime(path, (file_info["atime"], file_info["mtime"]))
             else:
                 # Set the modification time
                 atime = os.path.getatime(path)
-                os.utime(path, (atime, file_info['mtime']))
+                os.utime(path, (atime, file_info["mtime"]))
 
-    def handle_file_modification(self, path: str, start_byte: int, end_byte: int, whole_file: bool,
-                                 file_info: dict, data: bytes):
+    def handle_file_modification(
+        self,
+        path: str,
+        start_byte: int,
+        end_byte: int,
+        whole_file: bool,
+        file_info: dict,
+        data: bytes,
+    ):
         """
         Handle file modification
         :param path: The file path
@@ -118,7 +137,9 @@ class Server:
         if not os.path.exists(os.path.dirname(path)):
             os.makedirs(os.path.dirname(path), exist_ok=True)
 
-        self.logger.info(f"Modifying file {path} from byte {start_byte} to {start_byte + len(data)}...")
+        self.logger.info(
+            f"Modifying file {path} from byte {start_byte} to {start_byte + len(data)}..."
+        )
 
         # If path is a file, we can modify it
         if not os.path.isdir(path):
@@ -134,8 +155,8 @@ class Server:
                 if whole_file:
                     f.truncate()
 
-            if self.args.hard_links and len(file_info['hard_links']) > 0:
-                for link in file_info['hard_links']:
+            if self.args.hard_links and len(file_info["hard_links"]) > 0:
+                for link in file_info["hard_links"]:
                     self.logger.info(f"Creating hard link {link}...")
                     link = os.path.join(os.path.dirname(path), link)
                     if os.path.exists(link):
@@ -143,15 +164,15 @@ class Server:
                     os.link(path, link)
 
             if self.args.perms:
-                os.chmod(path, int(file_info['permissions']))
+                os.chmod(path, int(file_info["permissions"]))
 
             if self.args.times:
                 # Set the access and modification time
-                os.utime(path, (file_info['atime'], file_info['mtime']))
+                os.utime(path, (file_info["atime"], file_info["mtime"]))
             else:
                 # Set the modification time
                 atime = os.path.getatime(path)
-                os.utime(path, (atime, file_info['mtime']))
+                os.utime(path, (atime, file_info["mtime"]))
         else:
             self.logger.warn(f"Cannot modify directory {path}")
 
@@ -183,7 +204,9 @@ class Server:
                 except OSError:
                     self.logger.warn(f"Cannot delete {file}")
 
-    def handle_file_offset(self, file_name: str, start_byte: int, end_byte: int, offset: int):
+    def handle_file_offset(
+        self, file_name: str, start_byte: int, end_byte: int, offset: int
+    ):
         """
         Move all the content from start_byte to end_byte by offset.
         :param file_name: The file name
@@ -196,14 +219,22 @@ class Server:
             return
 
         # Create parent directory if it doesn't exist
-        if not os.path.exists(os.path.dirname(os.path.join(self.destination, file_name))):
-            os.makedirs(os.path.dirname(os.path.join(self.destination, file_name)), exist_ok=True)
+        if not os.path.exists(
+            os.path.dirname(os.path.join(self.destination, file_name))
+        ):
+            os.makedirs(
+                os.path.dirname(os.path.join(self.destination, file_name)),
+                exist_ok=True,
+            )
 
-        self.logger.info(f"Moving file {file_name} from byte {start_byte} to {end_byte}...")
-        target_path = os.path.join(self.destination, file_name) if file_name != '' else os.path.join(self.destination,
-                                                                                                     os.path.basename(
-                                                                                                         self.source[
-                                                                                                             0]))
+        self.logger.info(
+            f"Moving file {file_name} from byte {start_byte} to {end_byte}..."
+        )
+        target_path = (
+            os.path.join(self.destination, file_name)
+            if file_name != ""
+            else os.path.join(self.destination, os.path.basename(self.source[0]))
+        )
         # verify if not a directory
         if not os.path.isdir(target_path):
             with open(target_path, "r+b") as f:
@@ -215,7 +246,7 @@ class Server:
                 # Replace the offset with empty bytes, this is needed to avoid having the same data twice
                 # The date will be overwritten by the next modification
                 f.seek(start_byte)
-                f.write(b'\x00' * offset)
+                f.write(b"\x00" * offset)
 
                 # If data is smaller than end_byte - start_byte, we need to truncate the file
                 if len(data) < end_byte - start_byte:
@@ -229,19 +260,43 @@ class Server:
         :return:
         """
 
-        send(self.wr, MESSAGE_TAG.ASK_FILE_LIST, generate_file_list_flags_from_args(self.args), timeout=self.args.timeout, logger=self.logger)
+        send(
+            self.wr,
+            MESSAGE_TAG.ASK_FILE_LIST,
+            generate_file_list_flags_from_args(self.args),
+            timeout=self.args.timeout,
+            logger=self.logger,
+        )
         while True:
-            tag, v = recv(self.rd, timeout=self.args.timeout, compress_file=self.args.compress)
+            tag, v = recv(
+                self.rd, timeout=self.args.timeout, compress_file=self.args.compress
+            )
 
             if tag == MESSAGE_TAG.ASK_FILE_LIST:
-                destination_files = generate_file_list([self.destination], self.logger, recursive=self.args.recursive,
-                                                       directory=True, options=generate_file_list_flags_from_args(self.args))
-                send(self.wr, MESSAGE_TAG.FILE_LIST, destination_files, timeout=self.args.timeout,
-                     logger=self.logger)
+                destination_files = generate_file_list(
+                    [self.destination],
+                    self.logger,
+                    recursive=self.args.recursive,
+                    directory=True,
+                    options=generate_file_list_flags_from_args(self.args),
+                )
+                send(
+                    self.wr,
+                    MESSAGE_TAG.FILE_LIST,
+                    destination_files,
+                    timeout=self.args.timeout,
+                    logger=self.logger,
+                )
             elif tag == MESSAGE_TAG.PING:
-                send(self.wr, MESSAGE_TAG.PONG, None, timeout=self.args.timeout, logger=self.logger)
+                send(
+                    self.wr,
+                    MESSAGE_TAG.PONG,
+                    None,
+                    timeout=self.args.timeout,
+                    logger=self.logger,
+                )
             elif tag == MESSAGE_TAG.FILE_LIST:
-                self.logger.info(f'File list received {v}')
+                self.logger.info(f"File list received {v}")
 
                 source_files = v
 
@@ -250,47 +305,68 @@ class Server:
                 # Once the file list is received, we start the generator
                 if pid == 0:
                     self.rd.close()
-                    destination_files = generate_file_list([self.destination], self.logger,
-                                                           recursive=self.args.recursive,
-                                                           directory=True, options=generate_file_list_flags_from_args(self.args))
-                    generator = Generator(self.wr, self.source, self.destination, source_files, destination_files,
-                                          self.logger, self.args)
+                    destination_files = generate_file_list(
+                        [self.destination],
+                        self.logger,
+                        recursive=self.args.recursive,
+                        directory=True,
+                        options=generate_file_list_flags_from_args(self.args),
+                    )
+                    generator = Generator(
+                        self.wr,
+                        self.source,
+                        self.destination,
+                        source_files,
+                        destination_files,
+                        self.logger,
+                        self.args,
+                    )
                     generator.run()
                     sys.exit(0)
             elif tag == MESSAGE_TAG.FILE_DATA:
                 (file_name, file_info, start, end, whole_file, data) = v
-                source = file_info['source']
-                modification_time = file_info['mtime']
+                source = file_info["source"]
+                modification_time = file_info["mtime"]
 
                 if file_name != "" and not self.source[source].endswith("/"):
                     # The file is in a subdirectory, in recursive mode
-                    file_name = os.path.join(os.path.basename(self.source[source]), file_name)
-
+                    file_name = os.path.join(
+                        os.path.basename(self.source[source]), file_name
+                    )
 
                 if self.destination.endswith("/"):
-                    target_path = os.path.join(self.destination,
-                                               file_name) if file_name != '' and file_name != '/' else os.path.join(
-                        self.destination,
-                        os.path.basename(
-                            self.source[
-                                source]))
+                    target_path = (
+                        os.path.join(self.destination, file_name)
+                        if file_name != "" and file_name != "/"
+                        else os.path.join(
+                            self.destination, os.path.basename(self.source[source])
+                        )
+                    )
                 else:
                     target_path = self.destination
 
-                if file_name == '/':
-                    target_path += '/'
+                if file_name == "/":
+                    target_path += "/"
 
                 # Check whether the file needs to be created or modified
                 if not os.path.exists(target_path):
                     self.handle_file_creation(target_path, data, file_info)
                 else:
-                    self.handle_file_modification(target_path, start, end, whole_file, file_info, data)
+                    self.handle_file_modification(
+                        target_path, start, end, whole_file, file_info, data
+                    )
             elif tag == MESSAGE_TAG.FILE_DATA_OFFSET:
                 (file_name, start, end, offset) = v
                 self.handle_file_offset(file_name, start, end, offset)
             elif tag == MESSAGE_TAG.DELETE_FILES:
                 self.handle_file_deletion(v)
             elif tag == MESSAGE_TAG.END:
-                self.logger.info('Server: End of transmission')
-                send(self.wr, MESSAGE_TAG.SERVER_FINISHED, None, timeout=self.args.timeout, logger=self.logger)
+                self.logger.info("Server: End of transmission")
+                send(
+                    self.wr,
+                    MESSAGE_TAG.SERVER_FINISHED,
+                    None,
+                    timeout=self.args.timeout,
+                    logger=self.logger,
+                )
                 break

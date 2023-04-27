@@ -21,8 +21,16 @@ from src.message import send, MESSAGE_TAG, MessageMethod
 
 
 class Generator:
-    def __init__(self, write_server: MessageMethod, source, destination, source_list: List[dict], destination_list: List[dict], logger,
-                 args):
+    def __init__(
+        self,
+        write_server: MessageMethod,
+        source,
+        destination,
+        source_list: List[dict],
+        destination_list: List[dict],
+        logger,
+        args,
+    ):
         # Sort source and destination lists with dict.path
         self.source_list = sorted(source_list, key=lambda x: x["path"])
         self.source_path_list = [x["path"] for x in self.source_list]
@@ -45,14 +53,22 @@ class Generator:
 
         for file_info in self.source_list:
             file = file_info["path"]
-            file = file if file != "" else path.basename(self.source[file_info["source"]])
+            file = (
+                file if file != "" else path.basename(self.source[file_info["source"]])
+            )
 
-            if file != "" and not self.source[file_info["source"]].endswith("/") and file != path.basename(self.source[file_info["source"]]):
+            if (
+                file != ""
+                and not self.source[file_info["source"]].endswith("/")
+                and file != path.basename(self.source[file_info["source"]])
+            ):
                 # The file is in a subdirectory, in recursive mode
                 file = path.join(path.basename(self.source[file_info["source"]]), file)
 
-            if not self.destination.endswith("/") and file != path.basename(self.destination):
-                file = ''
+            if not self.destination.endswith("/") and file != path.basename(
+                self.destination
+            ):
+                file = ""
 
             if file not in self.destination_path_list:
                 files.append(file_info["path"])
@@ -75,15 +91,26 @@ class Generator:
             found = False
             for source in self.source_list:
                 source_file = source["path"]
-                source_file = source_file if source_file != "" else path.basename(self.source[source["source"]])
+                source_file = (
+                    source_file
+                    if source_file != ""
+                    else path.basename(self.source[source["source"]])
+                )
 
-                if source_file != "" and not self.source[source["source"]].endswith("/") and source_file != path.basename(
-                        self.source[source["source"]]):
+                if (
+                    source_file != ""
+                    and not self.source[source["source"]].endswith("/")
+                    and source_file != path.basename(self.source[source["source"]])
+                ):
                     # The file is in a subdirectory, in recursive mode
-                    source_file = path.join(path.basename(self.source[source["source"]]), source_file)
+                    source_file = path.join(
+                        path.basename(self.source[source["source"]]), source_file
+                    )
 
-                if not self.destination.endswith("/") and source_file != path.basename(self.destination):
-                    if '' in self.destination_path_list:
+                if not self.destination.endswith("/") and source_file != path.basename(
+                    self.destination
+                ):
+                    if "" in self.destination_path_list:
                         found = True
 
                     continue
@@ -96,7 +123,9 @@ class Generator:
 
         return files
 
-    def get_modified_files(self) -> Tuple[List[str], List[int], List[List[int]], List[int]]:
+    def get_modified_files(
+        self,
+    ) -> Tuple[List[str], List[int], List[List[int]], List[int]]:
         """
         Returns a list of files that are in both the source and destination lists, but have different checksums.
         :return: List of modified files
@@ -109,14 +138,18 @@ class Generator:
 
         for file_info in self.source_list:
             file = file_info["path"]
-            file = file if file != "" else path.basename(self.source[file_info["source"]])
+            file = (
+                file if file != "" else path.basename(self.source[file_info["source"]])
+            )
 
             if file != "" and not self.source[file_info["source"]].endswith("/"):
                 # The file is in a subdirectory, in recursive mode
                 file = path.join(path.basename(self.source[file_info["source"]]), file)
 
-            if not self.destination.endswith("/") and file != path.basename(self.destination):
-                file = ''
+            if not self.destination.endswith("/") and file != path.basename(
+                self.destination
+            ):
+                file = ""
 
             # Check if file is in destination list
             if file in self.destination_path_list:
@@ -130,35 +163,44 @@ class Generator:
 
                 # Check if file is modified
                 if self.args.checksum:
-                    if file_info["checksum"] != destination_info[
-                        "checksum"]:
+                    if file_info["checksum"] != destination_info["checksum"]:
                         self.logger.debug(
-                            f"File {file} has different checksum. (Source: {file_info['checksum']}, Destination: {destination_info['checksum']})")
+                            f"File {file} has different checksum. (Source: {file_info['checksum']}, Destination: {destination_info['checksum']})"
+                        )
                         is_modified = True
                 else:
                     if file_info["size"] != destination_info["size"]:
                         is_modified = True
                         self.logger.debug(
-                            f"File {file} has different size. (Source: {file_info['size']}, Destination: {destination_info['size']})")
-                    elif not self.args.ignore_times and file_info["mtime"] != destination_info["mtime"]:
+                            f"File {file} has different size. (Source: {file_info['size']}, Destination: {destination_info['size']})"
+                        )
+                    elif (
+                        not self.args.ignore_times
+                        and file_info["mtime"] != destination_info["mtime"]
+                    ):
                         is_modified = True
                         self.logger.debug(
-                            f"File {file} has different modification time. (Source: {file_info['mtime']}, Destination: {destination_info['mtime']})")
+                            f"File {file} has different modification time. (Source: {file_info['mtime']}, Destination: {destination_info['mtime']})"
+                        )
 
                 if is_modified:
                     modified_files.append(file_info["path"])
                     sources.append(file_info["source"])
-                    if destination_info["path"] == '':
+                    if destination_info["path"] == "":
                         destination_path = self.destination
                     else:
-                        destination_path = path.join(self.destination, destination_info["path"])
+                        destination_path = path.join(
+                            self.destination, destination_info["path"]
+                        )
 
                     # Amount of blocks calculated from the total file size
                     # Block size is calculated like the real rsync
                     block_size = 700
                     if file_info["size"] > 490000:
                         # Square root of the file size (rounded up to a multiple of 8)
-                        block_size = int(2 ** ((file_info["size"] - 1).bit_length() + 1) ** 0.5)
+                        block_size = int(
+                            2 ** ((file_info["size"] - 1).bit_length() + 1) ** 0.5
+                        )
 
                     # Maximum blocks size 131kB
                     if block_size > 131072:
@@ -189,10 +231,20 @@ class Generator:
         :return: None
         """
 
-        send(self.write_server, MESSAGE_TAG.ASK_FILE_DATA, (path, source, checksums, total_length),
-             timeout=self.args.timeout)
+        send(
+            self.write_server,
+            MESSAGE_TAG.ASK_FILE_DATA,
+            (path, source, checksums, total_length),
+            timeout=self.args.timeout,
+        )
 
-    def ask_files(self, files: List[str], sources: List[int], checksums: List[List[int]], total_lengths: List[int]):
+    def ask_files(
+        self,
+        files: List[str],
+        sources: List[int],
+        checksums: List[List[int]],
+        total_lengths: List[int],
+    ):
         """
         Asks the client to send multiple files.
         :param files: A list of paths
@@ -212,12 +264,22 @@ class Generator:
 
         missing_files, files_sources = self.get_missing_files()
         extra_files = self.get_extra_files()
-        (modified_files, modified_sources, checksums, total_lengths) = self.get_modified_files()
+        (
+            modified_files,
+            modified_sources,
+            checksums,
+            total_lengths,
+        ) = self.get_modified_files()
 
         if missing_files:
             self.logger.debug("Missing files:")
             # Ask for missing files, -1 means ask for the whole file
-            self.ask_files(missing_files, files_sources, [[] for _ in missing_files], [-1 for _ in missing_files])
+            self.ask_files(
+                missing_files,
+                files_sources,
+                [[] for _ in missing_files],
+                [-1 for _ in missing_files],
+            )
         else:
             self.logger.debug("No missing files.")
 
@@ -225,7 +287,12 @@ class Generator:
             self.logger.debug("Extra files:")
             if self.args.delete:
                 self.logger.debug(f"Deleting extra files {extra_files}...")
-                send(self.write_server, MESSAGE_TAG.DELETE_FILES, extra_files, timeout=self.args.timeout)
+                send(
+                    self.write_server,
+                    MESSAGE_TAG.DELETE_FILES,
+                    extra_files,
+                    timeout=self.args.timeout,
+                )
             else:
                 self.logger.debug(f"Ignoring extra files {extra_files}...")
 
@@ -239,5 +306,10 @@ class Generator:
             self.logger.debug("No modified files.")
 
         self.logger.info("Generator finished")
-        send(self.write_server, MESSAGE_TAG.GENERATOR_FINISHED, None, timeout=self.args.timeout)
+        send(
+            self.write_server,
+            MESSAGE_TAG.GENERATOR_FINISHED,
+            None,
+            timeout=self.args.timeout,
+        )
         self.write_server.close()

@@ -20,14 +20,15 @@ _OFFS = 1  # default initial s1 offset
 
 
 class Adler32:
-    def __init__(self, data: bytes = ''):
+    def __init__(self, data: bytes = ""):
         """
         Create a new Adler32 checksum.
         :param data:  The data to initialize the checksum with.
         """
         self.s2, self.s1 = 0, _OFFS
         self.count = 0
-        if data: self.update(data)
+        if data:
+            self.update(data)
 
     def update(self, data: bytes):
         """
@@ -37,7 +38,7 @@ class Adler32:
         """
         value = zlib.adler32(data, self.checksum)
         # Split the checksum into two 16-bit values.
-        self.s2, self.s1 = (value >> 16) & 0xffff, value & 0xffff
+        self.s2, self.s1 = (value >> 16) & 0xFFFF, value & 0xFFFF
         # Update the byte count.
         self.count = self.count + len(data)
 

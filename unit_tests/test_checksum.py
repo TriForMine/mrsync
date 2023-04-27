@@ -18,6 +18,7 @@ from os import path
 import unittest
 from zlib import adler32
 
+
 class ChecksumTest(unittest.TestCase):
     def setUp(self):
         self.test_dir = tempfile.TemporaryDirectory()
@@ -45,7 +46,9 @@ class ChecksumTest(unittest.TestCase):
         """
         checksum = Checksum(self.file, divide=1)
         self.assertEqual(len(checksum.checksums), 1, "Checksums length is not 1.")
-        self.assertEqual(checksum.checksums[0], adler32(b"test"), "Checksum is not correct.")
+        self.assertEqual(
+            checksum.checksums[0], adler32(b"test"), "Checksum is not correct."
+        )
 
     def test_multiple_checksum(self):
         """
@@ -54,8 +57,12 @@ class ChecksumTest(unittest.TestCase):
         """
         checksum = Checksum(self.file, divide=2)
         self.assertEqual(len(checksum.checksums), 2, "Checksums length is not 2.")
-        self.assertEqual(checksum.checksums[0], adler32(b"tes"), "Checksum is not correct.")
-        self.assertEqual(checksum.checksums[1], adler32(b"t"), "Checksum is not correct.")
+        self.assertEqual(
+            checksum.checksums[0], adler32(b"tes"), "Checksum is not correct."
+        )
+        self.assertEqual(
+            checksum.checksums[1], adler32(b"t"), "Checksum is not correct."
+        )
 
     def test_checksums_part_length(self):
         """
@@ -79,10 +86,20 @@ class ChecksumTest(unittest.TestCase):
         :return:
         """
         checksum = Checksum(self.file, divide=2)
-        checksum2 = Checksum(checksums=checksum.checksums, part_length=checksum.partLength, total_length=checksum.totalLength)
-        self.assertEqual(checksum.checksums, checksum2.checksums, "Checksums are not equal.")
-        self.assertEqual(checksum.partLength, checksum2.partLength, "Part length is not equal.")
-        self.assertEqual(checksum.totalLength, checksum2.totalLength, "Total length is not equal.")
+        checksum2 = Checksum(
+            checksums=checksum.checksums,
+            part_length=checksum.partLength,
+            total_length=checksum.totalLength,
+        )
+        self.assertEqual(
+            checksum.checksums, checksum2.checksums, "Checksums are not equal."
+        )
+        self.assertEqual(
+            checksum.partLength, checksum2.partLength, "Part length is not equal."
+        )
+        self.assertEqual(
+            checksum.totalLength, checksum2.totalLength, "Total length is not equal."
+        )
 
     def test_compare_checksums_with_file(self):
         """
@@ -107,10 +124,13 @@ class ChecksumTest(unittest.TestCase):
 
         self.assertEqual(len(parts), 2, "Parts length is not 2.")
 
-        self.assertEqual(parts[0], (0, 4, 1), "It should first tell to move bytes 0 from 4 by 1 byte.")
+        self.assertEqual(
+            parts[0],
+            (0, 4, 1),
+            "It should first tell to move bytes 0 from 4 by 1 byte.",
+        )
         self.assertEqual(parts[1], (0, 1, 0), "It should then ask for bytes 0 to 1.")
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

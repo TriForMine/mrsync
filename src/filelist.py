@@ -23,6 +23,7 @@ from src.adler32 import Adler32
 
 # Enum bitfield for info to include in file list.
 
+
 class FileType(Enum):
     FILE = 0
     DIRECTORY = 1
@@ -40,7 +41,8 @@ class FileListInfo(Enum):
     CHECKSUM = 16
 
     def __str__(self):
-        return self.name.replace('_', ' ').title()
+        return self.name.replace("_", " ").title()
+
 
 def generate_file_list_flags_from_args(args: Namespace):
     file_list_flags = 0
@@ -62,6 +64,7 @@ def generate_file_list_flags_from_args(args: Namespace):
 
     return file_list_flags
 
+
 def generate_info(path, options, source, is_self=False, rel=None):
     """
     Generate info for a file or directory.
@@ -75,41 +78,46 @@ def generate_info(path, options, source, is_self=False, rel=None):
     file_type = FileType.FILE if os.path.isfile(path) else FileType.DIRECTORY
 
     if is_self:
-        info_path = ''
+        info_path = ""
     elif rel:
         info_path = os.path.relpath(path, rel)
     else:
         info_path = os.path.basename(path)
 
-    info = {'type': file_type.value, 'path': info_path, 'source': source}
+    info = {"type": file_type.value, "path": info_path, "source": source}
 
     if options & FileListInfo.HARD_LINKS.value:
         # Send all the hard links
-        info['hard_links'] = []
+        info["hard_links"] = []
         for link in os.listdir(os.path.dirname(path)):
-            if os.stat(os.path.join(os.path.dirname(path), link)).st_ino == os.stat(path).st_ino and link != os.path.basename(path):
-                info['hard_links'].append(link)
+            if os.stat(os.path.join(os.path.dirname(path), link)).st_ino == os.stat(
+                path
+            ).st_ino and link != os.path.basename(path):
+                info["hard_links"].append(link)
     if options & FileListInfo.PERMISSIONS.value:
-        info['permissions'] = os.stat(path).st_mode
+        info["permissions"] = os.stat(path).st_mode
     if options & FileListInfo.FILE_SIZE.value:
-        info['size'] = os.stat(path).st_size
+        info["size"] = os.stat(path).st_size
     if options & FileListInfo.FILE_TIMES.value:
-        info['atime'] = int(os.stat(path).st_atime)
-        info['mtime'] = int(os.stat(path).st_mtime)
-        info['ctime'] = int(os.stat(path).st_ctime)
+        info["atime"] = int(os.stat(path).st_atime)
+        info["mtime"] = int(os.stat(path).st_mtime)
+        info["ctime"] = int(os.stat(path).st_ctime)
 
     if file_type.value == FileType.FILE.value:
         if options & FileListInfo.CHECKSUM.value:
-            with open(path, 'rb') as f:
-                info['checksum'] = Adler32(f.read()).checksum
+            with open(path, "rb") as f:
+                info["checksum"] = Adler32(f.read()).checksum
 
     return info
 
 
-def generate_file_list(sources: List[str], logger,
-                       options: int = FileListInfo.NONE.value,
-                       recursive: Optional[bool] = False,
-                       directory: Optional[bool] = False) -> List[dict]:
+def generate_file_list(
+    sources: List[str],
+    logger,
+    options: int = FileListInfo.NONE.value,
+    recursive: Optional[bool] = False,
+    directory: Optional[bool] = False,
+) -> List[dict]:
     """
     Generate a list of files and directories from a list of paths.
     :param sources: list of paths to generate file list from
@@ -127,7 +135,9 @@ def generate_file_list(sources: List[str], logger,
         for root, dirs, files in os.walk(path, followlinks=True):
             for file in files:
                 file_path = os.path.join(root, file)
-                file_list.append(generate_info(file_path, options, source_num, rel=path))
+                file_list.append(
+                    generate_info(file_path, options, source_num, rel=path)
+                )
             for dir in dirs:
                 dir_path = os.path.join(root, dir)
                 file_list.append(generate_info(dir_path, options, source_num, rel=path))
@@ -183,42 +193,45 @@ def print_file_list(sources: List[str], logger, file_list: List[dict]):
     # Calculate max length of size to align columns
     max_size_length = 0
     for file in file_list:
-        size = humanize_size(file['size'])
+        size = humanize_size(file["size"])
         if len(size) > max_size_length:
             max_size_length = len(size)
 
     # Print like ls -l
     for file in file_list:
         # Generate permission string from permission int
-        file['permissions'] = str(file['permissions'])[-3:]
+        file["permissions"] = str(file["permissions"])[-3:]
         permission_string = ""
         for i in range(3):
-            permission_string += "r" if int(file['permissions'][i]) & 4 else "-"
-            permission_string += "w" if int(file['permissions'][i]) & 2 else "-"
-            permission_string += "x" if int(file['permissions'][i]) & 1 else "-"
+            permission_string += "r" if int(file["permissions"][i]) & 4 else "-"
+            permission_string += "w" if int(file["permissions"][i]) & 2 else "-"
+            permission_string += "x" if int(file["permissions"][i]) & 1 else "-"
 
-        if file['type'] == FileType.DIRECTORY.value:
+        if file["type"] == FileType.DIRECTORY.value:
             permission_string = "d" + permission_string
-        elif file['type'] == FileType.FILE.value:
+        elif file["type"] == FileType.FILE.value:
             permission_string = "-" + permission_string
 
-        size = humanize_size(file['size'])
+        size = humanize_size(file["size"])
 
-        time = file['mtime']
+        time = file["mtime"]
         time = strftime("%b %d %H:%M", localtime(time))
 
         # Make so evertyhing is aligned
         size = size.rjust(max_size_length)
 
-        file_name = file['path']
+        file_name = file["path"]
 
-        if file_name != "" and not sources[file['source']].endswith("/"):
+        if file_name != "" and not sources[file["source"]].endswith("/"):
             # The file is in a subdirectory, in recursive mode
-            file_name = os.path.join(os.path.basename(sources[file['source']]), file_name)
+            file_name = os.path.join(
+                os.path.basename(sources[file["source"]]), file_name
+            )
 
-        full_path = file_name if file_name != "" else os.path.basename(sources[file['source']])
+        full_path = (
+            file_name if file_name != "" else os.path.basename(sources[file["source"]])
+        )
 
-        logger.log(
-            f"{permission_string} {size} {time} {full_path}")
+        logger.log(f"{permission_string} {size} {time} {full_path}")
 
     logger.log(f"Total files: {len(file_list)}")

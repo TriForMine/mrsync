@@ -23,9 +23,15 @@ class Checksum:
     partLength: int
     totalLength: int
 
-    def __init__(self, path: str = "", divide: int = 2, max_size: Optional[int] = None,
-                 total_length: Optional[int] = None,
-                 checksums: Optional[List[int]] = None, part_length: Optional[int] = None):
+    def __init__(
+        self,
+        path: str = "",
+        divide: int = 2,
+        max_size: Optional[int] = None,
+        total_length: Optional[int] = None,
+        checksums: Optional[List[int]] = None,
+        part_length: Optional[int] = None,
+    ):
         """
         Create a divide checksum of a file.
         :param path:  The path to the file.
@@ -104,14 +110,24 @@ class Checksum:
                     if current_hash.checksum == self.checksums[i]:
                         if window > 0:
                             # Send the part between the start and the offset
-                            parts.append((i * other.partLength, i * other.partLength + window, 0))
+                            parts.append(
+                                (i * other.partLength, i * other.partLength + window, 0)
+                            )
                             # Send an offset representing the part that is the same
-                            parts.append((i * other.partLength, (i + 1) * other.partLength - window, window))
+                            parts.append(
+                                (
+                                    i * other.partLength,
+                                    (i + 1) * other.partLength - window,
+                                    window,
+                                )
+                            )
                         break
 
                     if len(read_data) <= window:
                         # Send the whole part as a difference
-                        parts.append((i * other.partLength, (i + 1) * other.partLength, 0))
+                        parts.append(
+                            (i * other.partLength, (i + 1) * other.partLength, 0)
+                        )
                         break
 
                     first_byte = bytes([read_data[window]])
@@ -146,7 +162,11 @@ class Checksum:
             if return_parts[-1][1] == part[0] and return_parts[-1][2] == part[2]:
                 return_parts[-1] = (return_parts[-1][0], part[1], return_parts[-1][2])
             elif return_parts[-1][1] > part[0] and return_parts[-1][2] == part[2]:
-                return_parts[-1] = (return_parts[-1][0], max(return_parts[-1][1], part[1]), return_parts[-1][2])
+                return_parts[-1] = (
+                    return_parts[-1][0],
+                    max(return_parts[-1][1], part[1]),
+                    return_parts[-1][2],
+                )
             else:
                 return_parts.append(part)
 
@@ -165,6 +185,8 @@ class Checksum:
         return f"{self.checksums}"
 
     def __eq__(self, other):
-        return self.totalLength == other.totalLength \
-            and self.partLength == other.partLength \
+        return (
+            self.totalLength == other.totalLength
+            and self.partLength == other.partLength
             and self.checksums == other.checksums
+        )

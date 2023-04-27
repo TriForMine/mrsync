@@ -20,7 +20,14 @@ import select
 
 from src.client import Client
 from src.logger import Logger
-from src.message import recv, FileDescriptorMethod, send, SocketMethod, SOCKET_IDENTIFICATION, MESSAGE_TAG
+from src.message import (
+    recv,
+    FileDescriptorMethod,
+    send,
+    SocketMethod,
+    SOCKET_IDENTIFICATION,
+    MESSAGE_TAG,
+)
 from src.options import get_args
 from src.server import Server
 import os
@@ -33,6 +40,7 @@ class Daemon:
     The daemon class, which is used to run a socket server in the background.
     And on each client connection, it will run a new server.
     """
+
     def __init__(self, logger: Logger, args: Namespace):
         self.logger = logger
         self.args = args
@@ -47,10 +55,14 @@ class Daemon:
             data = data.decode()
             if data.startswith("ok"):
                 daemon_pid = int(data.split(" ")[1])
-                print("The daemon is already running with PID " + str(daemon_pid) + ".\r")
+                print(
+                    "The daemon is already running with PID " + str(daemon_pid) + ".\r"
+                )
                 exit(1)
             else:
-                print("The daemon is already running but it is not responding. Or another program is using the port.\r")
+                print(
+                    "The daemon is already running but it is not responding. Or another program is using the port.\r"
+                )
                 exit(1)
         except ConnectionRefusedError:
             self.server.close()
@@ -86,8 +98,12 @@ class Daemon:
             # Parse the args.
             args = get_args(self.logger, unparsed_args)
 
-            parsed_source_mode, parsed_source_user, parsed_source_host, parsed_source_destination = parse_path(
-                args.source[0][0])
+            (
+                parsed_source_mode,
+                parsed_source_user,
+                parsed_source_host,
+                parsed_source_destination,
+            ) = parse_path(args.source[0][0])
 
             if pid == 0:
                 self.logger.verbose = True
@@ -95,21 +111,44 @@ class Daemon:
                 try:
                     if parsed_source_mode == "daemon":
                         args.source[0] = [parsed_source_destination]
-                        self.logger.info(f'[Daemon] Running a new client for socket {sock}')
-                        client = Client(args.source[0], FileDescriptorMethod(rd_client), FileDescriptorMethod(wr_client), self.logger, args)
+                        self.logger.info(
+                            f"[Daemon] Running a new client for socket {sock}"
+                        )
+                        client = Client(
+                            args.source[0],
+                            FileDescriptorMethod(rd_client),
+                            FileDescriptorMethod(wr_client),
+                            self.logger,
+                            args,
+                        )
                         client.run()
                     else:
-                        parsed_destination_mode, parsed_destination_user, parsed_destination_host, parsed_destination = parse_path(
-                            args.destination)
+                        (
+                            parsed_destination_mode,
+                            parsed_destination_user,
+                            parsed_destination_host,
+                            parsed_destination,
+                        ) = parse_path(args.destination)
                         args.destination = parsed_destination
 
-                        self.logger.info(f'[Daemon] Running a new server for socket {sock}')
+                        self.logger.info(
+                            f"[Daemon] Running a new server for socket {sock}"
+                        )
 
                         # rd_server is stdin and wr_server is stdout
-                        server = Server(args.source[0], args.destination, FileDescriptorMethod(rd_server), FileDescriptorMethod(wr_server), self.logger, args)
+                        server = Server(
+                            args.source[0],
+                            args.destination,
+                            FileDescriptorMethod(rd_server),
+                            FileDescriptorMethod(wr_server),
+                            self.logger,
+                            args,
+                        )
                         server.run()
                 except Exception as e:
-                    self.logger.error(f'[Daemon] An error occurred while running a new server: {e}')
+                    self.logger.error(
+                        f"[Daemon] An error occurred while running a new server: {e}"
+                    )
                     sock.send("error".encode())
                 finally:
                     sock.close()
@@ -128,13 +167,17 @@ class Daemon:
                     r, _, _ = select.select(lst, [], [])
                     if sock in r:
                         identification_flag, identification = recv(SocketMethod(sock))
-                        self.logger.info("[Daemon] Received identification: " + str(identification))
+                        self.logger.info(
+                            "[Daemon] Received identification: " + str(identification)
+                        )
 
                         if identification_flag == MESSAGE_TAG.PING:
                             send(SocketMethod(sock), MESSAGE_TAG.PONG, pid)
                             continue
                         elif identification_flag != MESSAGE_TAG.SOCKET_IDENTIFICATION:
-                            self.logger.error("[Daemon] The socket identification is not correct.")
+                            self.logger.error(
+                                "[Daemon] The socket identification is not correct."
+                            )
                             send(SocketMethod(sock), MESSAGE_TAG.END, None)
                             exit(1)
 
@@ -147,29 +190,41 @@ class Daemon:
                             send(FileDescriptorMethod(wr_client), flag, data)
 
                         if flag == MESSAGE_TAG.END:
-                            self.logger.info(f'[Daemon] The child process with PID {pid} exited.')
+                            self.logger.info(
+                                f"[Daemon] The child process with PID {pid} exited."
+                            )
                             exit(0)
 
                     if rd_client in r:
                         flag, data = recv(FileDescriptorMethod(rd_client))
 
-                        send(SocketMethod(sock), MESSAGE_TAG.SOCKET_IDENTIFICATION, SOCKET_IDENTIFICATION.CLIENT)
+                        send(
+                            SocketMethod(sock),
+                            MESSAGE_TAG.SOCKET_IDENTIFICATION,
+                            SOCKET_IDENTIFICATION.CLIENT,
+                        )
                         send(SocketMethod(sock), flag, data)
 
                     if rd_server in r:
                         flag, data = recv(FileDescriptorMethod(rd_server))
 
-                        send(SocketMethod(sock), MESSAGE_TAG.SOCKET_IDENTIFICATION, SOCKET_IDENTIFICATION.SERVER)
+                        send(
+                            SocketMethod(sock),
+                            MESSAGE_TAG.SOCKET_IDENTIFICATION,
+                            SOCKET_IDENTIFICATION.SERVER,
+                        )
                         send(SocketMethod(sock), flag, data)
 
             # Exit the process.
-            self.logger.info(f'[Daemon] The child process with PID {pid} exited.')
+            self.logger.info(f"[Daemon] The child process with PID {pid} exited.")
             exit(0)
         else:
             # Do not handle the client in the parent process.
             sock.close()
             self.clients.remove(sock)
-            print(f'[Daemon] Forked a new process with PID {pid} to handle the client {sock}.')
+            print(
+                f"[Daemon] Forked a new process with PID {pid} to handle the client {sock}."
+            )
 
     def handle_client(self, sock: socket.socket):
         """
@@ -205,14 +260,21 @@ class Daemon:
         """
         self.logger.info("Starting daemon...")
         home_dir = os.path.expanduser("~")
-        with daemon.DaemonContext(stdout=self.logger.stdout, stderr=self.logger.stderr, detach_process=(not self.args.no_detach), working_directory=os.path.join(home_dir)):
+        with daemon.DaemonContext(
+            stdout=self.logger.stdout,
+            stderr=self.logger.stderr,
+            detach_process=(not self.args.no_detach),
+            working_directory=os.path.join(home_dir),
+        ):
             self.logger.info("Daemon started.")
 
             self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server.bind((self.args.address, self.args.port))
             self.server.listen(5)
 
-            self.logger.info("Listening on " + self.args.address + ":" + str(self.args.port))
+            self.logger.info(
+                "Listening on " + self.args.address + ":" + str(self.args.port)
+            )
 
             with self.server:
                 while True:
@@ -222,7 +284,6 @@ class Daemon:
                             self.accept_new_client()
                         else:
                             self.handle_client(sock)
-
 
         # When the daemon exits, wait for all the child processes to exit.
         while os.waitpid(-1, os.WNOHANG)[0] > 0:

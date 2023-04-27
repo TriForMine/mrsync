@@ -25,7 +25,12 @@ def parse_path(path: str) -> Tuple[str, Optional[str], Optional[str], str]:
         return "daemon", None, path.split("::")[0], path.split("::")[1]
     elif ":" in path:
         if "@" in path.split(":")[0]:
-            return "ssh", path.split(":")[0].split("@")[0], path.split(":")[0].split("@")[1], path.split(":")[1]
+            return (
+                "ssh",
+                path.split(":")[0].split("@")[0],
+                path.split(":")[0].split("@")[1],
+                path.split(":")[1],
+            )
         else:
             return "ssh", None, path.split(":")[0], path.split(":")[1]
     else:

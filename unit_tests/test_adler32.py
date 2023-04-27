@@ -16,13 +16,18 @@ import unittest
 from src.adler32 import Adler32
 from zlib import adler32
 
+
 class TestAdler32(unittest.TestCase):
     def test_adler32_no_data(self):
         """
         Test if Adler32 calculates checksum correctly with no data
         :return:
         """
-        self.assertEqual(Adler32().checksum, adler32(b""), "Adler32 did not calculate checksum correctly.")
+        self.assertEqual(
+            Adler32().checksum,
+            adler32(b""),
+            "Adler32 did not calculate checksum correctly.",
+        )
 
     def test_adler32_with_data(self):
         """
@@ -30,7 +35,11 @@ class TestAdler32(unittest.TestCase):
         :return:
         """
         data = b"Hello World!"
-        self.assertEqual(Adler32(data).checksum, adler32(data), "Adler32 did not calculate checksum correctly.")
+        self.assertEqual(
+            Adler32(data).checksum,
+            adler32(data),
+            "Adler32 did not calculate checksum correctly.",
+        )
 
     def test_adler32_with_data_and_window(self):
         """
@@ -40,9 +49,13 @@ class TestAdler32(unittest.TestCase):
         data = b"AHello World"
         moved_data = b"Hello World!"
         adler = Adler32(data)
-        adler.move_window(b'A', b'!')
-        self.assertEqual(adler.checksum, adler32(moved_data), "Adler32 did not move window correctly.")
+        adler.move_window(b"A", b"!")
+        self.assertEqual(
+            adler.checksum,
+            adler32(moved_data),
+            "Adler32 did not move window correctly.",
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

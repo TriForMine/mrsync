@@ -16,6 +16,7 @@ import os
 from src.message import send, MESSAGE_TAG, recv, FileDescriptorMethod
 import unittest
 
+
 class TestMessage(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -27,7 +28,9 @@ class TestMessage(unittest.TestCase):
         :return:
         """
         send(FileDescriptorMethod(self.pipes[1]), MESSAGE_TAG.END, "unit_tests")
-        self.assertEqual(recv(FileDescriptorMethod(self.pipes[0])), (MESSAGE_TAG.END, "unit_tests"))
+        self.assertEqual(
+            recv(FileDescriptorMethod(self.pipes[0])), (MESSAGE_TAG.END, "unit_tests")
+        )
 
     def test_multiple_message(self):
         """
@@ -36,8 +39,12 @@ class TestMessage(unittest.TestCase):
         """
         send(FileDescriptorMethod(self.pipes[1]), MESSAGE_TAG.END, "unit_tests")
         send(FileDescriptorMethod(self.pipes[1]), MESSAGE_TAG.END, "test2")
-        self.assertEqual(recv(FileDescriptorMethod(self.pipes[0])), (MESSAGE_TAG.END, "unit_tests"))
-        self.assertEqual(recv(FileDescriptorMethod(self.pipes[0])), (MESSAGE_TAG.END, "test2"))
+        self.assertEqual(
+            recv(FileDescriptorMethod(self.pipes[0])), (MESSAGE_TAG.END, "unit_tests")
+        )
+        self.assertEqual(
+            recv(FileDescriptorMethod(self.pipes[0])), (MESSAGE_TAG.END, "test2")
+        )
 
     def test_big_message(self):
         """
@@ -45,7 +52,10 @@ class TestMessage(unittest.TestCase):
         :return:
         """
         send(FileDescriptorMethod(self.pipes[1]), MESSAGE_TAG.END, "unit_tests" * 1000)
-        self.assertEqual(recv(FileDescriptorMethod(self.pipes[0])), (MESSAGE_TAG.END, "unit_tests" * 1000))
+        self.assertEqual(
+            recv(FileDescriptorMethod(self.pipes[0])),
+            (MESSAGE_TAG.END, "unit_tests" * 1000),
+        )
 
     def test_file_data(self):
         """
@@ -53,8 +63,15 @@ class TestMessage(unittest.TestCase):
         :return:
         """
         data = ("unit_tests" * 1000).encode()
-        send(FileDescriptorMethod(self.pipes[1]), MESSAGE_TAG.FILE_DATA, ('unit_tests.txt', {"mtime": 0}, 0, 0, True, data))
-        self.assertEqual(recv(FileDescriptorMethod(self.pipes[0])), (MESSAGE_TAG.FILE_DATA, ('unit_tests.txt', {"mtime": 0}, 0, 0, True, data)))
+        send(
+            FileDescriptorMethod(self.pipes[1]),
+            MESSAGE_TAG.FILE_DATA,
+            ("unit_tests.txt", {"mtime": 0}, 0, 0, True, data),
+        )
+        self.assertEqual(
+            recv(FileDescriptorMethod(self.pipes[0])),
+            (MESSAGE_TAG.FILE_DATA, ("unit_tests.txt", {"mtime": 0}, 0, 0, True, data)),
+        )
 
     def test_file_data_with_compress(self):
         """
@@ -62,15 +79,27 @@ class TestMessage(unittest.TestCase):
         :return:
         """
         data = ("unit_tests" * 1000).encode()
-        send(FileDescriptorMethod(self.pipes[1]), MESSAGE_TAG.FILE_DATA, ('unit_tests.txt', {"mtime": 0}, 0, 0, True, data), compress_file=True, compress_level=9)
-        self.assertEqual(recv(FileDescriptorMethod(self.pipes[0]), compress_file=True), (MESSAGE_TAG.FILE_DATA, ('unit_tests.txt', {"mtime": 0}, 0, 0, True, data)))
+        send(
+            FileDescriptorMethod(self.pipes[1]),
+            MESSAGE_TAG.FILE_DATA,
+            ("unit_tests.txt", {"mtime": 0}, 0, 0, True, data),
+            compress_file=True,
+            compress_level=9,
+        )
+        self.assertEqual(
+            recv(FileDescriptorMethod(self.pipes[0]), compress_file=True),
+            (MESSAGE_TAG.FILE_DATA, ("unit_tests.txt", {"mtime": 0}, 0, 0, True, data)),
+        )
 
     def test_timeout(self):
         """
         Test if the timeout is triggered when no message is sent
         :return:
         """
-        with self.assertRaises((SystemExit, TimeoutError), msg="The timeout is not triggered when no message is sent") as cm:
+        with self.assertRaises(
+            (SystemExit, TimeoutError),
+            msg="The timeout is not triggered when no message is sent",
+        ) as cm:
             recv(FileDescriptorMethod(self.pipes[0]), timeout=1)
 
         self.assertEqual(cm.exception.code, 30, msg="The exit code is not 30")
@@ -81,7 +110,11 @@ class TestMessage(unittest.TestCase):
         :return:
         """
         send(FileDescriptorMethod(self.pipes[1]), MESSAGE_TAG.END, "unit_tests")
-        self.assertEqual(recv(FileDescriptorMethod(self.pipes[0]), timeout=1), (MESSAGE_TAG.END, "unit_tests"))
+        self.assertEqual(
+            recv(FileDescriptorMethod(self.pipes[0]), timeout=1),
+            (MESSAGE_TAG.END, "unit_tests"),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

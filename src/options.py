@@ -19,48 +19,136 @@ from typing import Optional, List
 from src.logger import Logger
 
 
-def parse_args(args = None):
+def parse_args(args=None):
     """
     Parse the command line arguments.
     :return: The parsed arguments.
     """
-    parser = argparse.ArgumentParser(description="A copy of rsync.", prog="mrsync", allow_abbrev=True)
+    parser = argparse.ArgumentParser(
+        description="A copy of rsync.", prog="mrsync", allow_abbrev=True
+    )
 
     # Source
-    parser.add_argument("source", type=str, action="append", help="the source file or directory", nargs="*", metavar="SOURCE")
+    parser.add_argument(
+        "source",
+        type=str,
+        action="append",
+        help="the source file or directory",
+        nargs="*",
+        metavar="SOURCE",
+    )
 
     # Destination
-    parser.add_argument("destination", type=str, nargs="?", default=None, help="the destination file or directory", metavar="DESTINATION")
+    parser.add_argument(
+        "destination",
+        type=str,
+        nargs="?",
+        default=None,
+        help="the destination file or directory",
+        metavar="DESTINATION",
+    )
 
     # Options
-    parser.add_argument("-v", "--verbose", action="store_true", help="increase verbosity")
-    parser.add_argument("-q", "--quiet", action="store_true", help="suppress non-error messages")
-    parser.add_argument("-a", "--archive", action="store_true", help="archive mode; same as -rpt (no -H)")
-    parser.add_argument("-r", "--recursive", action="store_true", help="recurse into directories")
-    parser.add_argument("-u", "--update", action="store_true", help="skip files that are newer on the receiver")
-    parser.add_argument("-d", "--dirs", action="store_true", help="transfer directories without recursing")
-    parser.add_argument("-H", "--hard-links", action="store_true", help="preserve hard links")
-    parser.add_argument("-p", "--perms", action="store_true", help="preserve permissions")
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="increase verbosity"
+    )
+    parser.add_argument(
+        "-q", "--quiet", action="store_true", help="suppress non-error messages"
+    )
+    parser.add_argument(
+        "-a",
+        "--archive",
+        action="store_true",
+        help="archive mode; same as -rpt (no -H)",
+    )
+    parser.add_argument(
+        "-r", "--recursive", action="store_true", help="recurse into directories"
+    )
+    parser.add_argument(
+        "-u",
+        "--update",
+        action="store_true",
+        help="skip files that are newer on the receiver",
+    )
+    parser.add_argument(
+        "-d",
+        "--dirs",
+        action="store_true",
+        help="transfer directories without recursing",
+    )
+    parser.add_argument(
+        "-H", "--hard-links", action="store_true", help="preserve hard links"
+    )
+    parser.add_argument(
+        "-p", "--perms", action="store_true", help="preserve permissions"
+    )
     parser.add_argument("-t", "--times", action="store_true", help="preserve times")
-    parser.add_argument("-z", "--compress", action="store_true", help="compress file data")
-    parser.add_argument("--compress-level", type=int, help="specify level of compression")
-    parser.add_argument("--existing", action="store_true", help="skip creating new files on receiver")
-    parser.add_argument("--ignore-existing", action="store_true", help="skip updating files that exist on receiver")
-    parser.add_argument("--delete", action="store_true", help="delete extraneous files from dest dirs")
-    parser.add_argument("--force", action="store_true", help="force deletion of dirs even if not empty")
+    parser.add_argument(
+        "-z", "--compress", action="store_true", help="compress file data"
+    )
+    parser.add_argument(
+        "--compress-level", type=int, help="specify level of compression"
+    )
+    parser.add_argument(
+        "--existing", action="store_true", help="skip creating new files on receiver"
+    )
+    parser.add_argument(
+        "--ignore-existing",
+        action="store_true",
+        help="skip updating files that exist on receiver",
+    )
+    parser.add_argument(
+        "--delete", action="store_true", help="delete extraneous files from dest dirs"
+    )
+    parser.add_argument(
+        "--force", action="store_true", help="force deletion of dirs even if not empty"
+    )
     parser.add_argument("--timeout", type=int, help="set I/O timeout in seconds")
-    parser.add_argument("--blocking-io", action="store_true", help="use blocking I/O for the remote shell")
-    parser.add_argument("-I", "--ignore-times", action="store_true", help="don't skip files that match size and time")
-    parser.add_argument("--size-only", action="store_true", help="skip files that match in size")
-    parser.add_argument("--address", type=str, help="bind address for outgoing socket to daemon")
-    parser.add_argument("--port", type=int, help="specify double-colon alternate port number")
-    parser.add_argument("--list-only", action="store_true", help="list the files instead of copying them")
-    parser.add_argument("--whole-file", action="store_true", help="copy files whole (w/o dividing them into blocks)")
-    parser.add_argument("--checksum", action="store_true", help="skip based on checksum, not mod-time & size")
-    parser.add_argument('--server', action='store_true', help="run as the server on remote machine")
-    parser.add_argument('--daemon', action='store_true', help="run as a daemon")
-    parser.add_argument('--no-detach', action='store_true', help="don't detach from the controlling terminal")
-    parser.add_argument('--version', action='store_true', help="print version number")
+    parser.add_argument(
+        "--blocking-io",
+        action="store_true",
+        help="use blocking I/O for the remote shell",
+    )
+    parser.add_argument(
+        "-I",
+        "--ignore-times",
+        action="store_true",
+        help="don't skip files that match size and time",
+    )
+    parser.add_argument(
+        "--size-only", action="store_true", help="skip files that match in size"
+    )
+    parser.add_argument(
+        "--address", type=str, help="bind address for outgoing socket to daemon"
+    )
+    parser.add_argument(
+        "--port", type=int, help="specify double-colon alternate port number"
+    )
+    parser.add_argument(
+        "--list-only",
+        action="store_true",
+        help="list the files instead of copying them",
+    )
+    parser.add_argument(
+        "--whole-file",
+        action="store_true",
+        help="copy files whole (w/o dividing them into blocks)",
+    )
+    parser.add_argument(
+        "--checksum",
+        action="store_true",
+        help="skip based on checksum, not mod-time & size",
+    )
+    parser.add_argument(
+        "--server", action="store_true", help="run as the server on remote machine"
+    )
+    parser.add_argument("--daemon", action="store_true", help="run as a daemon")
+    parser.add_argument(
+        "--no-detach",
+        action="store_true",
+        help="don't detach from the controlling terminal",
+    )
+    parser.add_argument("--version", action="store_true", help="print version number")
 
     return parser.parse_args(args), parser
 

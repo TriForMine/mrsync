@@ -22,8 +22,14 @@ class Logger:
     verbose: Optional[bool]
     quiet: Optional[bool]
 
-    def __init__(self, verbose: Optional[bool] = False, quiet: Optional[bool] = False,
-                 beautify: Optional[bool] = True, debug_mode: Optional[bool] = False, to_file: Optional[bool] = False):
+    def __init__(
+        self,
+        verbose: Optional[bool] = False,
+        quiet: Optional[bool] = False,
+        beautify: Optional[bool] = True,
+        debug_mode: Optional[bool] = False,
+        to_file: Optional[bool] = False,
+    ):
         """
         :param verbose: Verbose mode
         :param quiet: Quiet mode
