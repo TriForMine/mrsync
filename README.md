@@ -1,7 +1,7 @@
 # Mrsync
 This is an rsync clone implemented as a school project. It's written in Python 3 and supports nearly all the options from the real rsync tool. It also supports incremental transfers, compression, and SSH.
 
-[![action status](https://github.com/triformine/mrsync/actions/workflows/unittest.yml/badge.svg?event=push)]
+![action status](https://github.com/triformine/mrsync/actions/workflows/unittest.yml/badge.svg?event=push)
 
 ## What is rsync?
 Rsync is a popular file synchronization tool used to copy and synchronize files between two locations. It is known for its ability to transfer only the differences between the source and destination files, which makes it highly efficient for large file transfers over slow or unreliable networks.
