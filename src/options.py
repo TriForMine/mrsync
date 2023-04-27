@@ -13,6 +13,7 @@
 #    limitations under the License.
 
 import argparse
+import os
 from typing import Optional, List
 
 from src.logger import Logger
@@ -102,6 +103,11 @@ def get_args(logger: Logger, program_args: Optional[List[str]] = None):
     if len(args.source) == 0 or len(args.source[0]) == 0:
         parser.print_help()
         exit(1)
+
+    if not args.destination.endswith("/"):
+        # If the destination is a directory, add a trailing slash.
+        if os.path.exists(args.destination) and os.path.isdir(args.destination):
+            args.destination += "/"
 
     if args.compress_level is None:
         args.compress_level = 9
