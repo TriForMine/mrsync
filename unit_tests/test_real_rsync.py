@@ -56,134 +56,305 @@ class TestCompareWithRealRsync(unittest.TestCase):
 
     def test_compare_with_real_rsync(self):
         # Run mrsync
-        subprocess.run(["python3", "mrsync.py", "-r", self.test_src_dir.name, self.test_dst_dir.name])
+        subprocess.run(
+            [
+                "python3",
+                "mrsync.py",
+                "-r",
+                self.test_src_dir.name,
+                self.test_dst_dir.name,
+            ]
+        )
 
         # Run the real rsync
-        subprocess.run(["rsync", "-r", self.test_src_dir.name, self.test_dst_dir_2.name])
+        subprocess.run(
+            ["rsync", "-r", self.test_src_dir.name, self.test_dst_dir_2.name]
+        )
 
         # Compare the two directories
-        result = subprocess.run(["diff", "-r", self.test_dst_dir.name, self.test_dst_dir_2.name])
+        result = subprocess.run(
+            ["diff", "-r", self.test_dst_dir.name, self.test_dst_dir_2.name]
+        )
 
         # Check if the two directories are the same
         self.assertEqual(result.returncode, 0)
 
     def test_compare_with_real_rsync_with_archive(self):
         # Run mrsync
-        subprocess.run(["python3", "mrsync.py", "-r", "--archive", self.test_src_dir.name, self.test_dst_dir.name])
+        subprocess.run(
+            [
+                "python3",
+                "mrsync.py",
+                "-r",
+                "--archive",
+                self.test_src_dir.name,
+                self.test_dst_dir.name,
+            ]
+        )
 
         # Run the real rsync
-        subprocess.run(["rsync", "-r", "--archive", self.test_src_dir.name, self.test_dst_dir_2.name])
+        subprocess.run(
+            [
+                "rsync",
+                "-r",
+                "--archive",
+                self.test_src_dir.name,
+                self.test_dst_dir_2.name,
+            ]
+        )
 
         # Compare the two directories
-        result = subprocess.run(["diff", "-r", self.test_dst_dir.name, self.test_dst_dir_2.name])
+        result = subprocess.run(
+            ["diff", "-r", self.test_dst_dir.name, self.test_dst_dir_2.name]
+        )
 
         # Check if the two directories are the same
         self.assertEqual(result.returncode, 0)
 
     def test_compare_with_real_rsync_with_compress(self):
         # Run mrsync
-        subprocess.run(["python3", "mrsync.py", "-r", "--compress", self.test_src_dir.name, self.test_dst_dir.name])
+        subprocess.run(
+            [
+                "python3",
+                "mrsync.py",
+                "-r",
+                "--compress",
+                self.test_src_dir.name,
+                self.test_dst_dir.name,
+            ]
+        )
 
         # Run the real rsync
-        subprocess.run(["rsync", "-r", "--compress", self.test_src_dir.name, self.test_dst_dir_2.name])
+        subprocess.run(
+            [
+                "rsync",
+                "-r",
+                "--compress",
+                self.test_src_dir.name,
+                self.test_dst_dir_2.name,
+            ]
+        )
 
         # Compare the two directories
-        result = subprocess.run(["diff", "-r", self.test_dst_dir.name, self.test_dst_dir_2.name])
+        result = subprocess.run(
+            ["diff", "-r", self.test_dst_dir.name, self.test_dst_dir_2.name]
+        )
 
         # Check if the two directories are the same
         self.assertEqual(result.returncode, 0)
 
     def test_compare_with_real_rsync_with_checksum(self):
         # Run mrsync
-        subprocess.run(["python3", "mrsync.py", "-r", "--checksum", self.test_src_dir.name, self.test_dst_dir.name])
+        subprocess.run(
+            [
+                "python3",
+                "mrsync.py",
+                "-r",
+                "--checksum",
+                self.test_src_dir.name,
+                self.test_dst_dir.name,
+            ]
+        )
 
         # Run the real rsync
-        subprocess.run(["rsync", "-r", "--checksum", self.test_src_dir.name, self.test_dst_dir_2.name])
+        subprocess.run(
+            [
+                "rsync",
+                "-r",
+                "--checksum",
+                self.test_src_dir.name,
+                self.test_dst_dir_2.name,
+            ]
+        )
 
         # Compare the two directories
-        result = subprocess.run(["diff", "-r", self.test_dst_dir.name, self.test_dst_dir_2.name])
+        result = subprocess.run(
+            ["diff", "-r", self.test_dst_dir.name, self.test_dst_dir_2.name]
+        )
 
         # Check if the two directories are the same
         self.assertEqual(result.returncode, 0)
 
     def test_compare_with_real_rsync_with_dirs(self):
         # Run mrsync
-        subprocess.run(["python3", "mrsync.py", "-r", "--dirs", self.test_src_dir.name, self.test_dst_dir.name])
+        subprocess.run(
+            [
+                "python3",
+                "mrsync.py",
+                "-r",
+                "--dirs",
+                self.test_src_dir.name,
+                self.test_dst_dir.name,
+            ]
+        )
 
         # Run the real rsync
-        subprocess.run(["rsync", "-r", "--dirs", self.test_src_dir.name, self.test_dst_dir_2.name])
+        subprocess.run(
+            ["rsync", "-r", "--dirs", self.test_src_dir.name, self.test_dst_dir_2.name]
+        )
 
         # Compare the two directories
-        result = subprocess.run(["diff", "-r", self.test_dst_dir.name, self.test_dst_dir_2.name])
+        result = subprocess.run(
+            ["diff", "-r", self.test_dst_dir.name, self.test_dst_dir_2.name]
+        )
 
         # Check if the two directories are the same
         self.assertEqual(result.returncode, 0)
 
     def test_compare_with_real_rsync_with_hard_links(self):
         # Run mrsync
-        subprocess.run(["python3", "mrsync.py", "-r", "--hard-links", self.test_src_dir.name, self.test_dst_dir.name])
+        subprocess.run(
+            [
+                "python3",
+                "mrsync.py",
+                "-r",
+                "--hard-links",
+                self.test_src_dir.name,
+                self.test_dst_dir.name,
+            ]
+        )
 
         # Run the real rsync
-        subprocess.run(["rsync", "-r", "--hard-links", self.test_src_dir.name, self.test_dst_dir_2.name])
+        subprocess.run(
+            [
+                "rsync",
+                "-r",
+                "--hard-links",
+                self.test_src_dir.name,
+                self.test_dst_dir_2.name,
+            ]
+        )
 
         # Compare the two directories
-        result = subprocess.run(["diff", "-r", self.test_dst_dir.name, self.test_dst_dir_2.name])
+        result = subprocess.run(
+            ["diff", "-r", self.test_dst_dir.name, self.test_dst_dir_2.name]
+        )
 
         # Check if the two directories are the same
         self.assertEqual(result.returncode, 0)
 
     def test_compare_with_real_rsync_with_perms(self):
         # Run mrsync
-        subprocess.run(["python3", "mrsync.py", "-r", "--perms", self.test_src_dir.name, self.test_dst_dir.name])
+        subprocess.run(
+            [
+                "python3",
+                "mrsync.py",
+                "-r",
+                "--perms",
+                self.test_src_dir.name,
+                self.test_dst_dir.name,
+            ]
+        )
 
         # Run the real rsync
-        subprocess.run(["rsync", "-r", "--perms", self.test_src_dir.name, self.test_dst_dir_2.name])
+        subprocess.run(
+            ["rsync", "-r", "--perms", self.test_src_dir.name, self.test_dst_dir_2.name]
+        )
 
         # Compare the two directories
-        result = subprocess.run(["diff", "-r", self.test_dst_dir.name, self.test_dst_dir_2.name])
+        result = subprocess.run(
+            ["diff", "-r", self.test_dst_dir.name, self.test_dst_dir_2.name]
+        )
 
         # Check if the two directories are the same
         self.assertEqual(result.returncode, 0)
 
     def test_compare_with_real_rsync_with_existing(self):
         # Run mrsync
-        subprocess.run(["python3", "mrsync.py", "-r", "--existing", self.test_src_dir.name, self.test_dst_dir.name])
+        subprocess.run(
+            [
+                "python3",
+                "mrsync.py",
+                "-r",
+                "--existing",
+                self.test_src_dir.name,
+                self.test_dst_dir.name,
+            ]
+        )
 
         # Run the real rsync
-        subprocess.run(["rsync", "-r", "--existing", self.test_src_dir.name, self.test_dst_dir_2.name])
+        subprocess.run(
+            [
+                "rsync",
+                "-r",
+                "--existing",
+                self.test_src_dir.name,
+                self.test_dst_dir_2.name,
+            ]
+        )
 
         # Compare the two directories
-        result = subprocess.run(["diff", "-r", self.test_dst_dir.name, self.test_dst_dir_2.name])
+        result = subprocess.run(
+            ["diff", "-r", self.test_dst_dir.name, self.test_dst_dir_2.name]
+        )
 
         # Check if the two directories are the same
         self.assertEqual(result.returncode, 0)
 
     def test_compare_with_real_rsync_with_ignore_existing(self):
         # Run mrsync
-        subprocess.run(["python3", "mrsync.py", "-r", "--ignore-existing", self.test_src_dir.name, self.test_dst_dir.name])
+        subprocess.run(
+            [
+                "python3",
+                "mrsync.py",
+                "-r",
+                "--ignore-existing",
+                self.test_src_dir.name,
+                self.test_dst_dir.name,
+            ]
+        )
 
         # Run the real rsync
-        subprocess.run(["rsync", "-r", "--ignore-existing", self.test_src_dir.name, self.test_dst_dir_2.name])
+        subprocess.run(
+            [
+                "rsync",
+                "-r",
+                "--ignore-existing",
+                self.test_src_dir.name,
+                self.test_dst_dir_2.name,
+            ]
+        )
 
         # Compare the two directories
-        result = subprocess.run(["diff", "-r", self.test_dst_dir_2.name, self.test_dst_dir.name])
+        result = subprocess.run(
+            ["diff", "-r", self.test_dst_dir_2.name, self.test_dst_dir.name]
+        )
 
         # Check if the two directories are the same
         self.assertEqual(result.returncode, 0)
 
     def test_compare_with_real_rsync_with_size_only(self):
         # Run mrsync
-        subprocess.run(["python3", "mrsync.py", "-r", "--size-only", self.test_src_dir.name, self.test_dst_dir.name])
+        subprocess.run(
+            [
+                "python3",
+                "mrsync.py",
+                "-r",
+                "--size-only",
+                self.test_src_dir.name,
+                self.test_dst_dir.name,
+            ]
+        )
 
         # Run the real rsync
-        subprocess.run(["rsync", "-r", "--size-only", self.test_src_dir.name, self.test_dst_dir_2.name])
+        subprocess.run(
+            [
+                "rsync",
+                "-r",
+                "--size-only",
+                self.test_src_dir.name,
+                self.test_dst_dir_2.name,
+            ]
+        )
 
         # Compare the two directories
-        result = subprocess.run(["diff", "-r", self.test_dst_dir_2.name, self.test_dst_dir.name])
+        result = subprocess.run(
+            ["diff", "-r", self.test_dst_dir_2.name, self.test_dst_dir.name]
+        )
 
         # Check if the two directories are the same
         self.assertEqual(result.returncode, 0)
 
 
 if __name__ == "__main__":
-        unittest.main()
+    unittest.main()
