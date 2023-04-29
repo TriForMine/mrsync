@@ -267,6 +267,12 @@ class Server:
             timeout=self.args.timeout,
             logger=self.logger,
         )
+
+        if self.args.destination.endswith("/") and not os.path.exists(
+            self.args.destination
+        ):
+            os.makedirs(self.args.destination)
+
         while True:
             tag, v = recv(
                 self.rd, timeout=self.args.timeout, compress_file=self.args.compress
@@ -326,7 +332,6 @@ class Server:
             elif tag == MESSAGE_TAG.FILE_DATA:
                 (file_name, file_info, start, end, whole_file, data) = v
                 source = file_info["source"]
-                modification_time = file_info["mtime"]
 
                 if file_name != "" and not self.source[source].endswith("/"):
                     # The file is in a subdirectory, in recursive mode

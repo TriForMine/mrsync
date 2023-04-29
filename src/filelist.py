@@ -84,7 +84,12 @@ def generate_info(path, options, source, is_self=False, rel=None):
     else:
         info_path = os.path.basename(path)
 
-    info = {"type": file_type.value, "path": info_path, "source": source}
+    info = {
+        "type": file_type.value,
+        "path": info_path,
+        "source": source,
+        "mtime": int(os.stat(path).st_mtime),
+    }
 
     if options & FileListInfo.HARD_LINKS.value:
         # Send all the hard links
@@ -100,7 +105,6 @@ def generate_info(path, options, source, is_self=False, rel=None):
         info["size"] = os.stat(path).st_size
     if options & FileListInfo.FILE_TIMES.value:
         info["atime"] = int(os.stat(path).st_atime)
-        info["mtime"] = int(os.stat(path).st_mtime)
         info["ctime"] = int(os.stat(path).st_ctime)
 
     if file_type.value == FileType.FILE.value:
