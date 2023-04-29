@@ -23,10 +23,10 @@ class TestMrSync(unittest.TestCase):
         # Change to the root directory of the project
         os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-        # Create a unit_tests source directory
+        # Create a test source directory
         self.test_src_dir = tempfile.TemporaryDirectory()
 
-        # Create a unit_tests destination directory
+        # Create a test destination directory
         self.test_dst_dir = tempfile.TemporaryDirectory()
 
         # Create a unit_tests file

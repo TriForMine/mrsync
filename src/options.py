@@ -219,7 +219,9 @@ def get_args(logger: Logger, program_args: Optional[List[str]] = None):
         args.update = True
 
     if args.delete:
-        args.force = True
+        if not args.dirs and not args.recursive:
+            logger.error("Delete is only allowed if either -r or -d is specified.")
+            exit(2)
 
     if args.force:
         args.delete = True
