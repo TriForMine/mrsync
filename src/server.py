@@ -81,12 +81,29 @@ class Server:
 
         # Create directory if path ends with a slash
         if path.endswith("/"):
+            if os.path.exists(path) and not os.path.isdir(path):
+                os.remove(path)
+
             self.logger.info(f"Creating directory {path}...")
             os.makedirs(path, exist_ok=True)
         else:
             # Create parent directory if it doesn't exist
             if not os.path.exists(os.path.dirname(path)):
                 os.makedirs(os.path.dirname(path), exist_ok=True)
+
+            if os.path.exists(path) and os.path.isdir(path):
+                try:
+                    # If the directory is empty, we delete it
+                    os.rmdir(path)
+                except OSError:
+                    # If the directory is not empty and --force is set, we delete it recursively
+                    if self.args.force:
+                        shutil.rmtree(path)
+
+                    self.logger.error(
+                        f"Could not create file {path}: a directory with the same name already exists and is not empty. Use --force to delete it."
+                    )
+                    return
 
             self.logger.info(f"Creating file {path}...")
             with open(path, "wb") as f:
@@ -141,40 +158,55 @@ class Server:
             f"Modifying file {path} from byte {start_byte} to {start_byte + len(data)}..."
         )
 
-        # If path is a file, we can modify it
-        if not os.path.isdir(path):
-            with open(path, "r+b") as f:
-                f.seek(start_byte)
-                f.write(data)
+        # If path is a folder, we delete it and create a file with the same name
+        if os.path.isdir(path):
+            try:
+                # If the directory is empty, we delete it
+                os.rmdir(path)
+            except OSError:
+                # If the directory is not empty and --force is set, we delete it recursively
+                if self.args.force:
+                    self.logger.warn(f"Deleting directory {path} recursively...")
+                    shutil.rmtree(path)
+                else:
+                    self.logger.error(
+                        f"Could not modify file {path}: a directory with the same name already exists and is not empty. Use --force to delete it."
+                    )
+                    return
 
-                # If data is smaller than end_byte - start_byte, we need to truncate the file
-                if len(data) < end_byte - start_byte:
-                    f.truncate()
+            self.handle_file_creation(path, data, file_info)
+            return
 
-                # If the whole file is modified, we truncate it to the new size
-                if whole_file:
-                    f.truncate()
+        with open(path, "r+b") as f:
+            f.seek(start_byte)
+            f.write(data)
 
-            if self.args.hard_links and len(file_info["hard_links"]) > 0:
-                for link in file_info["hard_links"]:
-                    self.logger.info(f"Creating hard link {link}...")
-                    link = os.path.join(os.path.dirname(path), link)
-                    if os.path.exists(link):
-                        os.remove(link)
-                    os.link(path, link)
+            # If data is smaller than end_byte - start_byte, we need to truncate the file
+            if len(data) < end_byte - start_byte:
+                f.truncate()
 
-            if self.args.perms:
-                os.chmod(path, int(file_info["permissions"]))
+            # If the whole file is modified, we truncate it to the new size
+            if whole_file:
+                f.truncate()
 
-            if self.args.times:
-                # Set the access and modification time
-                os.utime(path, (file_info["atime"], file_info["mtime"]))
-            else:
-                # Set the modification time
-                atime = os.path.getatime(path)
-                os.utime(path, (atime, file_info["mtime"]))
+        if self.args.hard_links and len(file_info["hard_links"]) > 0:
+            for link in file_info["hard_links"]:
+                self.logger.info(f"Creating hard link {link}...")
+                link = os.path.join(os.path.dirname(path), link)
+                if os.path.exists(link):
+                    os.remove(link)
+                os.link(path, link)
+
+        if self.args.perms:
+            os.chmod(path, int(file_info["permissions"]))
+
+        if self.args.times:
+            # Set the access and modification time
+            os.utime(path, (file_info["atime"], file_info["mtime"]))
         else:
-            self.logger.warn(f"Cannot modify directory {path}")
+            # Set the modification time
+            atime = os.path.getatime(path)
+            os.utime(path, (atime, file_info["mtime"]))
 
     def handle_file_deletion(self, files: list):
         """
@@ -190,13 +222,7 @@ class Server:
 
             # If the file is a directory, we delete it
             if os.path.isdir(os.path.join(self.destination, file)):
-                try:
-                    # If the directory is empty, we delete it
-                    os.rmdir(os.path.join(self.destination, file))
-                except OSError:
-                    # If the directory is not empty and --force is set, we delete it recursively
-                    if self.args.force:
-                        shutil.rmtree(os.path.join(self.destination, file))
+                shutil.rmtree(os.path.join(self.destination, file))
             else:
                 try:
                     # If the file is not a directory, we delete it

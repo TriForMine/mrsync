@@ -193,31 +193,35 @@ class Generator:
                             self.destination, destination_info["path"]
                         )
 
-                    # Amount of blocks calculated from the total file size
-                    # Block size is calculated like the real rsync
-                    block_size = 700
-                    if file_info["size"] > 490000:
-                        # Square root of the file size (rounded up to a multiple of 8)
-                        block_size = int(
-                            2 ** ((file_info["size"] - 1).bit_length() + 1) ** 0.5
-                        )
+                    if not os.path.isdir(destination_path):
+                        # Amount of blocks calculated from the total file size
+                        # Block size is calculated like the real rsync
+                        block_size = 700
+                        if file_info["size"] > 490000:
+                            # Square root of the file size (rounded up to a multiple of 8)
+                            block_size = int(
+                                2 ** ((file_info["size"] - 1).bit_length() + 1) ** 0.5
+                            )
 
-                    # Maximum blocks size 131kB
-                    if block_size > 131072:
-                        block_size = 131072
+                        # Maximum blocks size 131kB
+                        if block_size > 131072:
+                            block_size = 131072
 
-                    amount_of_blocks = int(file_info["size"] / block_size)
+                        amount_of_blocks = int(file_info["size"] / block_size)
 
-                    if file_info["size"] % block_size != 0:
-                        amount_of_blocks += 1
+                        if file_info["size"] % block_size != 0:
+                            amount_of_blocks += 1
 
-                    if amount_of_blocks == 0:
-                        amount_of_blocks = 1
+                        if amount_of_blocks == 0:
+                            amount_of_blocks = 1
 
-                    # Calculate checksums
-                    checksum = Checksum(destination_path, divide=amount_of_blocks)
-                    checksums.append(checksum.checksums)
-                    total_lengths.append(checksum.totalLength)
+                        # Calculate checksums
+                        checksum = Checksum(destination_path, divide=amount_of_blocks)
+                        checksums.append(checksum.checksums)
+                        total_lengths.append(checksum.totalLength)
+                    else:
+                        checksums.append([])
+                        total_lengths.append(0)
 
         return modified_files, sources, checksums, total_lengths
 
