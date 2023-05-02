@@ -174,9 +174,15 @@ class Generator:
                         self.logger.debug(
                             f"File {file} has different size. (Source: {file_info['size']}, Destination: {destination_info['size']})"
                         )
-                    elif (
-                        not self.args.ignore_times
-                        and file_info["mtime"] != destination_info["mtime"]
+                    elif not self.args.ignore_times and (
+                        (
+                            self.args.update
+                            and file_info["mtime"] > destination_info["mtime"]
+                        )
+                        or (
+                            not self.args.update
+                            and file_info["mtime"] != destination_info["mtime"]
+                        )
                     ):
                         is_modified = True
                         self.logger.debug(
